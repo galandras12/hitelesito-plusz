@@ -1,0 +1,308 @@
+/* Hitelesítő+ Modern Minimalist CSS Stylesheet */
+
+:root {
+  --hp-primary: #2563eb;
+  --hp-primary-hover: #1d4ed8;
+  --hp-success: #10b981;
+  --hp-danger: #ef4444;
+  --hp-warning: #f59e0b;
+  --hp-bg: #f8fafc;
+  --hp-card-bg: #ffffff;
+  --hp-text: #0f172a;
+  --hp-text-muted: #64748b;
+  --hp-border: #e2e8f0;
+  --hp-radius: 12px;
+  --hp-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+}
+
+/* Authentication Screen (Full page redirect) */
+body.hitelesito-auth-body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--hp-bg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color: var(--hp-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.hitelesito-auth-card {
+  background: var(--hp-card-bg);
+  width: 100%;
+  max-width: 420px;
+  padding: 2.5rem;
+  border-radius: var(--hp-radius);
+  box-shadow: var(--hp-shadow);
+  border: 1px solid var(--hp-border);
+  box-sizing: border-box;
+}
+
+.hitelesito-auth-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.hitelesito-auth-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--hp-text);
+  letter-spacing: -0.02em;
+}
+
+.hitelesito-auth-header p {
+  margin: 0;
+  color: var(--hp-text-muted);
+  font-size: 0.95rem;
+}
+
+.hitelesito-auth-desc {
+  font-size: 0.95rem;
+  color: var(--hp-text-muted);
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+/* Form inputs & buttons */
+.hitelesito-form-group {
+  margin-bottom: 1.25rem;
+}
+
+.hitelesito-form-group label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--hp-text);
+}
+
+.hitelesito-code-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  font-size: 1.5rem;
+  letter-spacing: 0.35em;
+  text-align: center;
+  font-family: monospace;
+  border: 1.5px solid var(--hp-border);
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: var(--hp-text);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.hitelesito-code-input:focus {
+  outline: none;
+  border-color: var(--hp-primary);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.hitelesito-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  text-decoration: none;
+}
+
+.hitelesito-btn-block {
+  width: 100%;
+}
+
+.hitelesito-btn, .hitelesito-btn-primary {
+  background-color: var(--hp-primary);
+  color: #ffffff !important;
+}
+
+.hitelesito-btn:hover {
+  background-color: var(--hp-primary-hover);
+}
+
+.hitelesito-btn-success {
+  background-color: var(--hp-success);
+  color: #ffffff !important;
+}
+
+.hitelesito-btn-danger {
+  background-color: var(--hp-danger);
+  color: #ffffff !important;
+}
+
+/* QR code container */
+.hitelesito-qr-box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 1.25rem 0;
+  padding: 1rem;
+  background: #ffffff;
+  border: 1px solid var(--hp-border);
+  border-radius: 10px;
+}
+
+.hitelesito-qr-box img {
+  max-width: 100%;
+  height: auto;
+}
+
+.hitelesito-secret-key {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--hp-text-muted);
+  margin-bottom: 1.25rem;
+}
+
+.hitelesito-secret-key code {
+  background: #f1f5f9;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: bold;
+  color: var(--hp-primary);
+}
+
+/* Alerts */
+.hitelesito-alert {
+  padding: 0.875rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  margin-bottom: 1.25rem;
+  line-height: 1.4;
+}
+
+.hitelesito-alert-danger {
+  background-color: #fef2f2;
+  color: var(--hp-danger);
+  border: 1px solid #fecaca;
+}
+
+.hitelesito-alert-success {
+  background-color: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.hitelesito-alert-warning {
+  background-color: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+/* Admin settings page */
+.hitelesito-admin-container {
+  max-width: 900px;
+  margin: 20px 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.hitelesito-header {
+  margin-bottom: 1.5rem;
+}
+
+.hitelesito-badge {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  background: var(--hp-primary);
+  color: #fff;
+  vertical-align: middle;
+}
+
+.hitelesito-badge-active {
+  background: var(--hp-success);
+}
+
+.hitelesito-badge-inactive {
+  background: var(--hp-danger);
+}
+
+.hitelesito-card {
+  background: var(--hp-card-bg);
+  border: 1px solid var(--hp-border);
+  border-radius: var(--hp-radius);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.hitelesito-card h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hitelesito-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+}
+
+.hitelesito-table th, .hitelesito-table td {
+  padding: 0.875rem;
+  text-align: left;
+  border-bottom: 1px solid var(--hp-border);
+}
+
+.hitelesito-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--hp-text-muted);
+}
+
+.hitelesito-table select {
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--hp-border);
+  font-size: 0.9rem;
+}
+
+/* Widget Card / Shortcode */
+.hitelesito-widget-card {
+  background: var(--hp-card-bg);
+  border: 1px solid var(--hp-border);
+  border-radius: var(--hp-radius);
+  padding: 1.5rem;
+  box-shadow: var(--hp-shadow);
+  max-width: 480px;
+  margin: 1rem 0;
+}
+
+.hitelesito-widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--hp-border);
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+.hitelesito-widget-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.hitelesito-steps {
+  padding-left: 1.25rem;
+  line-height: 1.6;
+}
+
+.hitelesito-auth-footer, .hitelesito-footer {
+  text-align: center;
+  margin-top: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--hp-text-muted);
+}
