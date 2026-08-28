@@ -48,5 +48,10 @@ Az admin a felhasználó profilszerkesztő oldalán, vagy a Hitelesítő+ admin 
 
 == Changelog ==
 
+= 1.1 =
+* Javítva: a biztonsági mentési kódok TXT letöltése 403 hibát adhatott bizonyos gyorsítótárazó pluginok/szerverek mellett - a letöltés mostantól teljesen a böngészőben (szerver-kérés nélkül) történik.
+* Javítva: gyorsítótárazó pluginok/szerverek elavult biztonsági nonce-ot szolgálhattak ki a bejelentkezés utáni ellenőrző oldalon, ami miatt minden TOTP-, e-mail- és Passkey-ellenőrzés "Hiba történt, próbáld újra" üzenettel meghiúsult. A frontend mostantól minden oldalbetöltéskor és minden sikertelen próbálkozás után automatikusan friss, soha nem gyorsítótárazott nonce-ot kér.
+* A bejelentkezés utáni ellenőrző és a saját beállító oldal explicit no-cache HTTP fejléceket küld.
+
 = 1.0 =
 * Első kiadás: TOTP, e-mail kód, Passkey (WebAuthn), biztonsági mentési kódok, szerepkör-mátrix, brute force védelem, admin riasztás, shortcode.
