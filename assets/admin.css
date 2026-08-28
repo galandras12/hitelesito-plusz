@@ -1,0 +1,284 @@
+.h2f-wrap {
+	max-width: 1100px;
+	margin-top: 20px;
+}
+
+.h2f-header {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	background: #ffffff;
+	border: 1px solid #e2e4e7;
+	border-radius: 12px;
+	padding: 20px 24px;
+	margin-bottom: 20px;
+	box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.h2f-header-icon svg { display: block; }
+
+.h2f-wrap h1 {
+	margin: 0 0 4px;
+	font-size: 22px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.h2f-subtitle {
+	margin: 0;
+	color: #6b7280;
+	font-size: 13px;
+}
+
+.h2f-tabs {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 0;
+	border-bottom: 1px solid #e2e4e7;
+	flex-wrap: wrap;
+}
+
+.h2f-tab {
+	padding: 12px 18px;
+	text-decoration: none;
+	color: #6b7280;
+	font-weight: 500;
+	font-size: 13px;
+	border-bottom: 2px solid transparent;
+	transition: color .15s ease, border-color .15s ease;
+}
+
+.h2f-tab:hover {
+	color: #1d2327;
+}
+
+.h2f-tab.active {
+	color: #1d2327;
+	border-bottom-color: #1d2327;
+}
+
+.h2f-card {
+	background: #ffffff;
+	border: 1px solid #e2e4e7;
+	border-top: none;
+	border-radius: 0 0 12px 12px;
+	padding: 28px;
+	box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.h2f-help {
+	color: #6b7280;
+	font-size: 13px;
+	margin: 4px 0 16px;
+}
+
+.h2f-field {
+	margin-bottom: 20px;
+	max-width: 720px;
+}
+
+.h2f-field label {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 6px;
+	color: #1d2327;
+	font-size: 13px;
+}
+
+.h2f-input, .h2f-select, .h2f-textarea {
+	width: 100%;
+	border: 1px solid #d5d8dc;
+	border-radius: 8px;
+	padding: 8px 10px;
+	font-size: 13px;
+	box-shadow: none;
+}
+
+.h2f-input:focus, .h2f-select:focus, .h2f-textarea:focus {
+	border-color: #1d2327;
+	box-shadow: 0 0 0 1px #1d2327;
+	outline: none;
+}
+
+.h2f-textarea {
+	font-family: Consolas, Monaco, monospace;
+}
+
+.h2f-btn-primary {
+	background: #1d2327 !important;
+	border-color: #1d2327 !important;
+	border-radius: 8px !important;
+	padding: 6px 18px !important;
+	height: auto !important;
+}
+
+.h2f-btn-primary:hover {
+	background: #32373c !important;
+}
+
+/* Szerepkör mátrix */
+.h2f-table-scroll {
+	overflow-x: auto;
+	margin-bottom: 20px;
+	-webkit-overflow-scrolling: touch;
+}
+
+.h2f-matrix {
+	width: 100%;
+	border-collapse: collapse;
+	min-width: 640px;
+}
+
+.h2f-matrix th {
+	text-align: left;
+	font-size: 12px;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+	color: #6b7280;
+	padding: 10px 12px;
+	border-bottom: 1px solid #e2e4e7;
+}
+
+.h2f-matrix td {
+	padding: 12px;
+	border-bottom: 1px solid #f0f1f2;
+	vertical-align: middle;
+}
+
+.h2f-role-name {
+	font-weight: 600;
+	color: #1d2327;
+	white-space: nowrap;
+}
+
+.h2f-segmented {
+	display: inline-flex;
+	background: #f3f4f5;
+	border-radius: 8px;
+	padding: 3px;
+	gap: 2px;
+}
+
+.h2f-segment {
+	position: relative;
+	cursor: pointer;
+	padding: 5px 10px;
+	border-radius: 6px;
+	font-size: 12px;
+	color: #6b7280;
+	transition: background .15s ease, color .15s ease;
+	white-space: nowrap;
+}
+
+.h2f-segment input {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.h2f-segment.is-active {
+	background: #ffffff;
+	color: #1d2327;
+	font-weight: 600;
+	box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+/* Switch (kapcsoló) */
+.h2f-switch-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 14px;
+}
+
+.h2f-switch {
+	position: relative;
+	display: inline-block;
+	width: 42px;
+	height: 24px;
+	flex-shrink: 0;
+	margin-top: 2px;
+}
+
+.h2f-switch input { opacity: 0; width: 0; height: 0; }
+
+.h2f-switch-slider {
+	position: absolute;
+	cursor: pointer;
+	top: 0; left: 0; right: 0; bottom: 0;
+	background-color: #d5d8dc;
+	border-radius: 24px;
+	transition: .15s;
+}
+
+.h2f-switch-slider:before {
+	position: absolute;
+	content: "";
+	height: 18px; width: 18px;
+	left: 3px; bottom: 3px;
+	background-color: white;
+	border-radius: 50%;
+	transition: .15s;
+}
+
+.h2f-switch input:checked + .h2f-switch-slider {
+	background-color: #1d2327;
+}
+
+.h2f-switch input:checked + .h2f-switch-slider:before {
+	transform: translateX(18px);
+}
+
+/* Kód dobozok (shortcode fül) */
+.h2f-code-box {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	background: #f6f7f7;
+	border: 1px solid #e2e4e7;
+	border-radius: 8px;
+	padding: 10px 14px;
+	max-width: 720px;
+	flex-wrap: wrap;
+}
+
+.h2f-code-box code {
+	background: none;
+	flex: 1;
+	word-break: break-all;
+}
+
+/* Státusz jelzők */
+.h2f-status-on {
+	color: #0a7a3c;
+	font-weight: 600;
+}
+
+.h2f-status-off {
+	color: #a7aaad;
+}
+
+.h2f-disable-btn {
+	margin-left: 10px !important;
+	border-radius: 6px !important;
+}
+
+/* Felhasználólista jelvények */
+.h2f-badge {
+	display: inline-block;
+	font-size: 11px;
+	padding: 2px 7px;
+	border-radius: 10px;
+	background: #f0f1f2;
+	color: #1d2327;
+	margin-right: 4px;
+	white-space: nowrap;
+}
+
+.h2f-badge-totp { background: #eaf3ff; color: #0a5fc4; }
+.h2f-badge-passkey { background: #eafaf0; color: #0a7a3c; }
+.h2f-badge-email { background: #fff5e6; color: #b5650a; }
+
+@media (max-width: 782px) {
+	.h2f-card { padding: 18px; }
+	.h2f-header { flex-direction: column; align-items: flex-start; }
+}
