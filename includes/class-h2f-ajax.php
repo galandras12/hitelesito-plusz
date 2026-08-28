@@ -10,6 +10,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 class H2F_Ajax {
 
 	public static function init() {
+		// --- Nonce frissítés (soha nem gyorsítótárazott AJAX válasz) ---
+		add_action( 'wp_ajax_h2f_refresh_nonce', array( __CLASS__, 'refresh_nonce' ) );
+		add_action( 'wp_ajax_nopriv_h2f_refresh_nonce', array( __CLASS__, 'refresh_nonce' ) );
+
 		// --- Bejelentkezés közbeni ellenőrzés (nem bejelentkezett állapot) ---
 		add_action( 'wp_ajax_nopriv_h2f_verify_totp', array( __CLASS__, 'verify_totp_pending' ) );
 		add_action( 'wp_ajax_nopriv_h2f_verify_backup', array( __CLASS__, 'verify_backup_pending' ) );
@@ -28,35 +32,32 @@ class H2F_Ajax {
 		add_action( 'wp_ajax_h2f_setup_passkey_register_options', array( __CLASS__, 'setup_passkey_register_options' ) );
 		add_action( 'wp_ajax_h2f_setup_passkey_register_verify', array( __CLASS__, 'setup_passkey_register_verify' ) );
 		add_action( 'wp_ajax_h2f_setup_passkey_delete', array( __CLASS__, 'setup_passkey_delete' ) );
-
-		// --- Biztonsági kódok letöltése TXT-ként ---
-		add_action( 'admin_post_h2f_download_backup_codes', array( __CLASS__, 'download_backup_codes' ) );
 	}
 
-	public static function download_backup_codes() {
-		if ( ! is_user_logged_in() ) {
-			wp_die( esc_html__( 'Be kell jelentkezned.', 'hitelesito-plusz' ) );
-		}
-		check_admin_referer( 'h2f_download_backup_codes' );
-
-		$user  = wp_get_current_user();
-		$codes = get_transient( 'h2f_plain_backup_' . $user->ID );
-
-		if ( ! $codes ) {
-			wp_die( esc_html__( 'A letöltési link lejárt. Generálj új kódokat.', 'hitelesito-plusz' ) );
-		}
-
-		delete_transient( 'h2f_plain_backup_' . $user->ID );
-
-		$content  = H2F_Backup_Codes::build_txt_content( $user, $codes );
-		$filename = sanitize_file_name( 'hitelesito-plusz-biztonsagi-kodok-' . $user->user_login . '.txt' );
-
+	/**
+	 * Mindig valós idejű, soha nem gyorsítótárazott AJAX válasz, ami friss
+	 * nonce-ot ad vissza. A frontend ezzel cseréli le az oldal HTML-jébe
+	 * beágyazott (esetleg oldal-cache plugin/szerver által megőrzött,
+	 * elavult) nonce-ot minden művelet előtt, hogy gyorsítótárazás miatt
+	 * ne jelenjen meg téves "hiba történt" / lejárt munkamenet üzenet.
+	 */
+	public static function refresh_nonce() {
 		nocache_headers();
-		header( 'Content-Type: text/plain; charset=utf-8' );
-		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
-		header( 'Content-Length: ' . strlen( $content ) );
-		echo $content;
-		exit;
+
+		$data = array();
+
+		if ( ! empty( $_COOKIE[ H2F_Login_Flow::PENDING_COOKIE ] ) ) {
+			$token = sanitize_text_field( wp_unslash( $_COOKIE[ H2F_Login_Flow::PENDING_COOKIE ] ) );
+			if ( get_transient( 'h2f_pending_' . $token ) ) {
+				$data['pendingNonce'] = wp_create_nonce( 'h2f_pending_' . $token );
+			}
+		}
+
+		if ( is_user_logged_in() ) {
+			$data['setupNonce'] = wp_create_nonce( 'h2f_setup_nonce' );
+		}
+
+		wp_send_json_success( $data );
 	}
 
 	/* ---------------------------------------------------------------
@@ -65,16 +66,31 @@ class H2F_Ajax {
 
 	protected static function get_pending_session_or_die() {
 		if ( empty( $_COOKIE[ H2F_Login_Flow::PENDING_COOKIE ] ) ) {
-			wp_send_json_error( array( 'message' => __( 'Lejárt munkamenet, jelentkezz be újra.', 'hitelesito-plusz' ) ), 401 );
+			wp_send_json_error( array(
+				'message'   => __( 'Lejárt munkamenet, jelentkezz be újra.', 'hitelesito-plusz' ),
+				'expired'   => true,
+			), 401 );
 		}
 		$token = sanitize_text_field( wp_unslash( $_COOKIE[ H2F_Login_Flow::PENDING_COOKIE ] ) );
 		$data  = get_transient( 'h2f_pending_' . $token );
 		if ( ! $data ) {
-			wp_send_json_error( array( 'message' => __( 'Lejárt munkamenet, jelentkezz be újra.', 'hitelesito-plusz' ) ), 401 );
+			wp_send_json_error( array(
+				'message' => __( 'Lejárt munkamenet, jelentkezz be újra.', 'hitelesito-plusz' ),
+				'expired' => true,
+			), 401 );
 		}
 		$data['token'] = $token;
 
-		check_ajax_referer( 'h2f_pending_' . $token, 'nonce' );
+		// Nem halálosan ("wp_die(-1)") ellenőrizzük a nonce-ot, hanem érthető
+		// JSON hibaüzenettel térünk vissza - ha pl. egy gyorsítótárazó plugin
+		// elavult nonce-ot szolgált ki a HTML-ben, a frontend ezt felismeri és
+		// automatikusan friss nonce-ot kér, majd újrapróbálja a műveletet.
+		if ( ! check_ajax_referer( 'h2f_pending_' . $token, 'nonce', false ) ) {
+			wp_send_json_error( array(
+				'message'      => __( 'A munkamenet időközben megújult, próbáld újra.', 'hitelesito-plusz' ),
+				'nonce_expired' => true,
+			), 403 );
+		}
 
 		return $data;
 	}
@@ -190,7 +206,12 @@ class H2F_Ajax {
 		if ( ! is_user_logged_in() ) {
 			wp_send_json_error( array( 'message' => __( 'Be kell jelentkezned.', 'hitelesito-plusz' ) ), 401 );
 		}
-		check_ajax_referer( 'h2f_setup_nonce', 'nonce' );
+		if ( ! check_ajax_referer( 'h2f_setup_nonce', 'nonce', false ) ) {
+			wp_send_json_error( array(
+				'message'       => __( 'A munkamenet időközben megújult, próbáld újra.', 'hitelesito-plusz' ),
+				'nonce_expired' => true,
+			), 403 );
+		}
 	}
 
 	public static function setup_totp_start() {
@@ -238,14 +259,11 @@ class H2F_Ajax {
 		$user  = wp_get_current_user();
 		$codes = H2F_Backup_Codes::generate_new_set( $user->ID );
 
-		set_transient( 'h2f_plain_backup_' . $user->ID, $codes, 5 * MINUTE_IN_SECONDS );
-
 		wp_send_json_success( array(
-			'codes'        => $codes,
-			'download_url' => wp_nonce_url(
-				admin_url( 'admin-post.php?action=h2f_download_backup_codes' ),
-				'h2f_download_backup_codes'
-			),
+			'codes'     => $codes,
+			'site_name' => get_bloginfo( 'name' ),
+			'user_login' => $user->user_login,
+			'generated_at' => date_i18n( 'Y-m-d H:i' ),
 		) );
 	}
 
