@@ -25,7 +25,28 @@
 		return btoa( str ).replace( /\+/g, '-' ).replace( /\//g, '_' ).replace( /=+$/, '' );
 	}
 
-	function post( action, params ) {
+	function refreshNonce() {
+		var body = new URLSearchParams();
+		body.set( 'action', 'h2f_refresh_nonce' );
+		return fetch( H2F.ajaxUrl, {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: body.toString(),
+			cache: 'no-store',
+		} ).then( function ( r ) { return r.json(); } ).then( function ( res ) {
+			if ( res && res.success ) {
+				if ( res.data.pendingNonce ) {
+					H2F.nonce = res.data.pendingNonce;
+				} else if ( res.data.setupNonce ) {
+					H2F.nonce = res.data.setupNonce;
+				}
+			}
+			return res;
+		} ).catch( function () {} );
+	}
+
+	function post( action, params, isRetry ) {
 		var body = new URLSearchParams();
 		body.set( 'action', action );
 		body.set( 'nonce', ( window.H2F && H2F.nonce ) ? H2F.nonce : '' );
@@ -39,7 +60,18 @@
 			credentials: 'same-origin',
 			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 			body: body.toString(),
-		} ).then( function ( r ) { return r.json(); } );
+			cache: 'no-store',
+		} ).then( function ( r ) { return r.json(); } ).then( function ( res ) {
+			// Ha az oldal HTML-je (pl. gyorsítótárazó plugin miatt) elavult
+			// nonce-ot tartalmazott, itt automatikusan frissítünk és egyszer
+			// újrapróbáljuk - a felhasználó ebből semmit nem vesz észre.
+			if ( ! isRetry && res && false === res.success && res.data && res.data.nonce_expired ) {
+				return refreshNonce().then( function () {
+					return post( action, params, true );
+				} );
+			}
+			return res;
+		} );
 	}
 
 	function showError( container, selector, message ) {
@@ -70,9 +102,39 @@
 		}
 	}
 
+	function downloadBackupCodesTxt( data ) {
+		var lines = [];
+		lines.push( '=== ' + data.site_name + ' - Hitelesítő+ biztonsági mentési kódok ===' );
+		lines.push( 'Felhasználó: ' + data.user_login );
+		lines.push( 'Generálva: ' + data.generated_at );
+		lines.push( '' );
+		lines.push( 'Minden kód egyszer használható fel, ha nem férsz hozzá a többi hitelesítő módszerhez.' );
+		lines.push( 'Tárold biztonságos, offline helyen (pl. nyomtatva, széfben).' );
+		lines.push( '' );
+		data.codes.forEach( function ( code, i ) {
+			lines.push( ( i + 1 ) + '.   ' + code );
+		} );
+		lines.push( '' );
+		lines.push( 'Ha ezeket a kódokat felhasználod vagy elveszíted, generálj újakat a fiókod beállításai között.' );
+
+		var blob = new Blob( [ lines.join( '\n' ) ], { type: 'text/plain;charset=utf-8' } );
+		var url = URL.createObjectURL( blob );
+		var a = document.createElement( 'a' );
+		a.href = url;
+		a.download = 'hitelesito-plusz-biztonsagi-kodok-' + ( data.user_login || 'user' ) + '.txt';
+		document.body.appendChild( a );
+		a.click();
+		document.body.removeChild( a );
+		setTimeout( function () { URL.revokeObjectURL( url ); }, 1000 );
+	}
+
 	var H2FVerify = {
 		init: function ( opts ) {
 			var root = document;
+
+			// Az oldal betöltésekor azonnal friss nonce-ot kérünk - ha az oldal
+			// HTML-je gyorsítótárazva volt, ez a kérés soha nincs gyorsítótárazva.
+			refreshNonce();
 
 			function goto( view ) {
 				var views = root.querySelectorAll( '[data-h2f-view]' );
@@ -255,6 +317,8 @@
 		init: function () {
 			var root = document;
 
+			refreshNonce();
+
 			var totpStartBtn = root.querySelector( '[data-h2f-totp-start]' );
 			if ( totpStartBtn ) {
 				totpStartBtn.addEventListener( 'click', function () {
@@ -344,19 +408,27 @@
 						} );
 						box.innerHTML = '';
 
-						var downloadLink = document.createElement( 'a' );
-						downloadLink.href = res.data.download_url;
-						downloadLink.className = 'h2f-btn';
-						downloadLink.style.display = 'block';
-						downloadLink.style.marginBottom = '12px';
-						downloadLink.style.textAlign = 'center';
-						downloadLink.style.textDecoration = 'none';
-						downloadLink.style.boxSizing = 'border-box';
-						downloadLink.textContent = 'Letöltés TXT fájlként';
+						// A TXT fájlt a böngészőben, a szerver megkerülésével
+						// állítjuk elő és töltjük le (Blob), hogy semmilyen
+						// gyorsítótárazási/nonce probléma ne akadályozhassa.
+						var downloadBtn = document.createElement( 'button' );
+						downloadBtn.type = 'button';
+						downloadBtn.className = 'h2f-btn';
+						downloadBtn.style.display = 'block';
+						downloadBtn.style.marginBottom = '12px';
+						downloadBtn.style.boxSizing = 'border-box';
+						downloadBtn.textContent = 'Letöltés TXT fájlként';
+						downloadBtn.addEventListener( 'click', function () {
+							downloadBackupCodesTxt( res.data );
+						} );
 
-						box.appendChild( downloadLink );
+						box.appendChild( downloadBtn );
 						box.appendChild( grid );
 						box.style.display = 'block';
+
+						// Automatikusan el is indítjuk a letöltést, a gomb csak
+						// az ismételt letöltéshez marad ott.
+						downloadBackupCodesTxt( res.data );
 					} );
 				} );
 			}
