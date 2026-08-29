@@ -75,7 +75,7 @@ class H2F_User_Profile {
 						<ul style="margin:0;">
 						<?php foreach ( $passkeys as $pk ) : ?>
 							<li><?php echo esc_html( $pk->device_name ? $pk->device_name : __( 'Névtelen eszköz', 'hitelesito-plusz' ) ); ?>
-								(<?php echo esc_html( date_i18n( 'Y-m-d', strtotime( $pk->created_at ) ) ); ?>)</li>
+								(<?php echo esc_html( get_date_from_gmt( $pk->created_at, 'Y-m-d' ) ); ?>)</li>
 						<?php endforeach; ?>
 						</ul>
 						<?php if ( current_user_can( 'edit_users' ) ) : ?>
