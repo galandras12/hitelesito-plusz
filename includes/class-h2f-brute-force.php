@@ -52,7 +52,10 @@ class H2F_Brute_Force {
 
 		$window_minutes  = (int) H2F_Settings::get( 'brute_force_window', 15 );
 		$max_tries       = (int) H2F_Settings::get( 'brute_force_max_tries', 5 );
-		$since           = date( 'Y-m-d H:i:s', time() - ( $window_minutes * 60 ) );
+		// UTC-ben (GMT) számolunk, összhangban a current_time( 'mysql', true )
+		// hívásokkal lent - így nincs csúszás a WP-ben beállított helyi idő és
+		// a szerver saját rendszerideje között.
+		$since           = gmdate( 'Y-m-d H:i:s', time() - ( $window_minutes * 60 ) );
 
 		$count = (int) $wpdb->get_var( $wpdb->prepare(
 			"SELECT COUNT(*) FROM " . H2F_DB::table_login_attempts() . "
@@ -75,7 +78,7 @@ class H2F_Brute_Force {
 			array(
 				'ip_address'   => self::get_ip(),
 				'username'     => sanitize_text_field( $username ),
-				'attempted_at' => current_time( 'mysql' ),
+				'attempted_at' => current_time( 'mysql', true ),
 				'success'      => 0,
 			),
 			array( '%s', '%s', '%s', '%d' )
@@ -92,7 +95,7 @@ class H2F_Brute_Force {
 			array(
 				'ip_address'   => self::get_ip(),
 				'username'     => sanitize_text_field( $username ),
-				'attempted_at' => current_time( 'mysql' ),
+				'attempted_at' => current_time( 'mysql', true ),
 				'success'      => 1,
 			),
 			array( '%s', '%s', '%s', '%d' )
@@ -104,7 +107,7 @@ class H2F_Brute_Force {
 		$lockout_minutes = max( (int) H2F_Settings::get( 'brute_force_window', 15 ), (int) H2F_Settings::get( 'brute_force_lockout', 30 ) );
 		$wpdb->query( $wpdb->prepare(
 			"DELETE FROM " . H2F_DB::table_login_attempts() . " WHERE attempted_at < %s",
-			date( 'Y-m-d H:i:s', time() - ( $lockout_minutes * 60 * 4 ) )
+			gmdate( 'Y-m-d H:i:s', time() - ( $lockout_minutes * 60 * 4 ) )
 		) );
 	}
 }
