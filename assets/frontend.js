@@ -25,13 +25,116 @@
 		return btoa( str ).replace( /\+/g, '-' ).replace( /\//g, '_' ).replace( /=+$/, '' );
 	}
 
+	/* ------------------------------------------------------------------
+	 * Hibadiagnosztika - minden AJAX/hálózati hibáról részletes, kimásolható
+	 * leírást állít elő, hogy a felhasználó pontosan visszajelezhesse, hol
+	 * és mi akadt el (időpont, művelet, HTTP állapot, nyers válasz, böngésző).
+	 * ---------------------------------------------------------------- */
+
+	function nowString() {
+		var d = new Date();
+		function pad( n ) { return ( n < 10 ? '0' : '' ) + n; }
+		return d.getFullYear() + '-' + pad( d.getMonth() + 1 ) + '-' + pad( d.getDate() ) + ' ' +
+			pad( d.getHours() ) + ':' + pad( d.getMinutes() ) + ':' + pad( d.getSeconds() );
+	}
+
+	function buildDiagnosticsText( info ) {
+		var lines = [];
+		lines.push( '=== Hitelesítő+ hibajelentés ===' );
+		lines.push( 'Időpont: ' + nowString() );
+		lines.push( 'Oldal: ' + window.location.href );
+		lines.push( 'Művelet: ' + ( info.action || '-' ) );
+		lines.push( 'HTTP állapot: ' + ( undefined !== info.httpStatus ? info.httpStatus : 'ismeretlen' ) );
+		lines.push( 'Üzenet: ' + ( info.message || '-' ) );
+		lines.push( 'Nyers válasz: ' + ( info.rawText || '-' ) );
+		lines.push( 'Böngésző: ' + navigator.userAgent );
+		return lines.join( '\n' );
+	}
+
+	function showDiagnostics( info ) {
+		if ( window.console && console.warn ) {
+			console.warn( '[Hitelesítő+ hiba]', info );
+		}
+
+		var toggle = document.querySelector( '[data-h2f-diagnostics-toggle]' );
+		var panel = document.querySelector( '[data-h2f-diagnostics]' );
+		var pre = document.querySelector( '[data-h2f-diagnostics-text]' );
+
+		if ( pre ) {
+			pre.textContent = buildDiagnosticsText( info );
+		}
+		if ( toggle ) {
+			toggle.style.display = 'inline-block';
+		}
+		// Első hiba esetén automatikusan nyissuk is ki, hogy azonnal látszódjon.
+		if ( panel && toggle && 'none' === getComputedStyle( panel ).display && ! toggle.dataset.h2fUserToggled ) {
+			panel.style.display = 'block';
+			toggle.textContent = 'Hiba részleteinek elrejtése';
+		}
+	}
+
+	function wireDiagnosticsPanel() {
+		var toggle = document.querySelector( '[data-h2f-diagnostics-toggle]' );
+		var panel = document.querySelector( '[data-h2f-diagnostics]' );
+		var copyBtn = document.querySelector( '[data-h2f-diagnostics-copy]' );
+
+		if ( toggle && panel ) {
+			toggle.addEventListener( 'click', function () {
+				toggle.dataset.h2fUserToggled = '1';
+				var isHidden = 'none' === getComputedStyle( panel ).display;
+				panel.style.display = isHidden ? 'block' : 'none';
+				toggle.textContent = isHidden ? 'Hiba részleteinek elrejtése' : 'Hiba részleteinek megtekintése';
+			} );
+		}
+
+		if ( copyBtn ) {
+			copyBtn.addEventListener( 'click', function () {
+				var pre = document.querySelector( '[data-h2f-diagnostics-text]' );
+				var text = pre ? pre.textContent : '';
+				var original = copyBtn.textContent;
+
+				function done() {
+					copyBtn.textContent = 'Másolva!';
+					setTimeout( function () { copyBtn.textContent = original; }, 1500 );
+				}
+
+				if ( navigator.clipboard && navigator.clipboard.writeText ) {
+					navigator.clipboard.writeText( text ).then( done );
+				} else {
+					var tmp = document.createElement( 'textarea' );
+					tmp.value = text;
+					document.body.appendChild( tmp );
+					tmp.select();
+					document.execCommand( 'copy' );
+					document.body.removeChild( tmp );
+					done();
+				}
+			} );
+		}
+	}
+
+	/**
+	 * Felismeri, ha a nyers válasz valójában egy teljes weboldal (HTML
+	 * dokumentum) a várt JSON helyett - ez tipikusan azt jelenti, hogy egy
+	 * biztonsági/tűzfal bővítmény (pl. Shield Security, Wordfence, egyéb
+	 * bot-védelem) blokkolta vagy átirányította az AJAX kérést, mielőtt az
+	 * elérte volna a plugin kódját.
+	 */
+	function looksLikeHtmlPage( text ) {
+		var trimmed = ( text || '' ).trim().toLowerCase();
+		return trimmed.indexOf( '<!doctype html' ) === 0 || trimmed.indexOf( '<html' ) === 0;
+	}
+
 	function refreshNonce() {
 		var body = new URLSearchParams();
 		body.set( 'action', 'h2f_refresh_nonce' );
 		return fetch( H2F.ajaxUrl, {
 			method: 'POST',
 			credentials: 'same-origin',
-			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded',
+				'X-Requested-With': 'XMLHttpRequest',
+			},
 			body: body.toString(),
 			cache: 'no-store',
 		} ).then( function ( r ) { return r.json(); } ).then( function ( res ) {
@@ -58,10 +161,42 @@
 		return fetch( H2F.ajaxUrl, {
 			method: 'POST',
 			credentials: 'same-origin',
-			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded',
+				// Sok tűzfal/bot-védelmi bővítmény ez alapján ismeri fel, hogy
+				// valódi AJAX kérésről van szó, nem közvetlen/gyanús POST-ról.
+				'X-Requested-With': 'XMLHttpRequest',
+			},
 			body: body.toString(),
 			cache: 'no-store',
-		} ).then( function ( r ) { return r.json(); } ).then( function ( res ) {
+		} ).then( function ( r ) {
+			var httpStatus = r.status;
+			return r.text().then( function ( text ) {
+				var parsed;
+				try {
+					parsed = JSON.parse( text );
+				} catch ( e ) {
+					if ( looksLikeHtmlPage( text ) ) {
+						parsed = {
+							success: false,
+							data: {
+								message: 'A szerver egy teljes weboldalt küldött vissza a várt válasz helyett (HTTP ' + httpStatus + ').',
+								detail: 'Ez tipikusan egy biztonsági/tűzfal bővítmény (pl. Shield Security, Wordfence, Sucuri, vagy hasonló bot-védelem/CAPTCHA) beavatkozása miatt történik, ami blokkolja vagy átirányítja az admin-ajax.php-ra küldött kérést. Kérjük, ellenőrizd a biztonsági bővítmény beállításait, és adj kivételt a "h2f_" kezdetű AJAX műveletekre / a wp-admin/admin-ajax.php végpontra.',
+							},
+						};
+					} else {
+						parsed = {
+							success: false,
+							data: {
+								message: 'Váratlan szerverválasz (HTTP ' + httpStatus + '). Lásd a hiba részleteit lent.',
+							},
+						};
+					}
+				}
+				parsed._diag = { action: action, httpStatus: httpStatus, rawText: text };
+				return parsed;
+			} );
+		} ).then( function ( res ) {
 			// Ha az oldal HTML-je (pl. gyorsítótárazó plugin miatt) elavult
 			// nonce-ot tartalmazott, itt automatikusan frissítünk és egyszer
 			// újrapróbáljuk - a felhasználó ebből semmit nem vesz észre.
@@ -70,7 +205,19 @@
 					return post( action, params, true );
 				} );
 			}
+			if ( res && false === res.success ) {
+				showDiagnostics( {
+					action: action,
+					httpStatus: res._diag ? res._diag.httpStatus : undefined,
+					message: getErrorMessage( res ),
+					rawText: res._diag ? res._diag.rawText : '',
+				} );
+			}
 			return res;
+		} ).catch( function ( err ) {
+			var message = 'Hálózati hiba: ' + ( ( err && err.message ) || String( err ) );
+			showDiagnostics( { action: action, httpStatus: undefined, message: message, rawText: String( err && err.stack || err ) } );
+			return { success: false, data: { message: message } };
 		} );
 	}
 
@@ -89,6 +236,17 @@
 		}
 	}
 
+	function getErrorMessage( res ) {
+		if ( res && res.data && res.data.message ) {
+			var msg = res.data.message;
+			if ( res.data.detail ) {
+				msg += ' — ' + res.data.detail;
+			}
+			return msg;
+		}
+		return ( window.H2F && H2F.i18n && H2F.i18n.genericError ) ? H2F.i18n.genericError : 'Hiba történt, próbáld újra.';
+	}
+
 	function setBusy( btn, busy, label ) {
 		if ( ! btn ) {
 			return;
@@ -99,6 +257,48 @@
 			btn.textContent = label || '...';
 		} else if ( btn.dataset.originalText ) {
 			btn.textContent = btn.dataset.originalText;
+		}
+	}
+
+	/**
+	 * Egyszerű, megbízható mobil-detektálás: a user-agent alapú érintőképernyős
+	 * eszközjelzők (telefonok/tabletek), kiegészítve a durva mutatóeszköz
+	 * (coarse pointer) + keskeny képernyő ellenőrzésével azokra az esetekre,
+	 * amikor egy egyedi/ritkább böngésző UA-stringje nem egyezik pontosan.
+	 */
+	function isMobileDevice() {
+		var uaMatch = /Android|iPhone|iPad|iPod|Windows Phone|Mobile/i.test( navigator.userAgent );
+		var coarsePointer = window.matchMedia && window.matchMedia( '(pointer: coarse)' ).matches && window.innerWidth <= 820;
+		return uaMatch || coarsePointer;
+	}
+
+	/**
+	 * A QR kódot mobilon egy érinthető hivatkozásba csomagolja, ami az
+	 * otpauth:// séma megnyitásával közvetlenül elindítja az alapértelmezett
+	 * hitelesítő alkalmazást (Google/Microsoft Authenticator, stb.) a
+	 * kézi QR-beolvasás megkerülésével. Asztali nézetben marad a sima QR kép.
+	 */
+	function renderQrCode( holder, svg, otpauthUri ) {
+		if ( ! holder ) {
+			return;
+		}
+		holder.innerHTML = '';
+
+		if ( isMobileDevice() && otpauthUri ) {
+			var link = document.createElement( 'a' );
+			link.href = otpauthUri;
+			link.className = 'h2f-qr-tap-link';
+			link.setAttribute( 'aria-label', 'Érintse meg a gyors párosításhoz' );
+			link.innerHTML = svg;
+
+			var caption = document.createElement( 'span' );
+			caption.className = 'h2f-qr-tap-caption';
+			caption.innerHTML = '<span aria-hidden="true">📲</span> Érintse meg a gyors párosításhoz';
+
+			link.appendChild( caption );
+			holder.appendChild( link );
+		} else {
+			holder.innerHTML = svg;
 		}
 	}
 
@@ -131,6 +331,8 @@
 	var H2FVerify = {
 		init: function ( opts ) {
 			var root = document;
+
+			wireDiagnosticsPanel();
 
 			// Az oldal betöltésekor azonnal friss nonce-ot kérünk - ha az oldal
 			// HTML-je gyorsítótárazva volt, ez a kérés soha nincs gyorsítótárazva.
@@ -170,7 +372,7 @@
 						if ( res.success ) {
 							finalizeRedirect( res );
 						} else {
-							showError( root, 'totp', res.data.message || H2F.i18n.genericError );
+							showError( root, 'totp', getErrorMessage( res ) );
 						}
 					} ).catch( function () {
 						setBusy( totpBtn, false );
@@ -190,7 +392,7 @@
 						if ( res.success ) {
 							finalizeRedirect( res );
 						} else {
-							showError( root, 'backup', res.data.message || H2F.i18n.genericError );
+							showError( root, 'backup', getErrorMessage( res ) );
 						}
 					} ).catch( function () {
 						setBusy( backupBtn, false );
@@ -217,7 +419,7 @@
 								box.style.display = 'block';
 							}
 						} else {
-							showError( root, 'email', res.data.message || H2F.i18n.genericError );
+							showError( root, 'email', getErrorMessage( res ) );
 						}
 					} ).catch( function () {
 						setBusy( btn, false );
@@ -237,7 +439,7 @@
 						if ( res.success ) {
 							finalizeRedirect( res );
 						} else {
-							showError( root, 'email', res.data.message || H2F.i18n.genericError );
+							showError( root, 'email', getErrorMessage( res ) );
 						}
 					} ).catch( function () {
 						setBusy( emailSubmitBtn, false );
@@ -290,7 +492,7 @@
 						if ( res.success ) {
 							finalizeRedirect( res );
 						} else {
-							showError( root, 'passkey', res.data.message || H2F.i18n.genericError );
+							showError( root, 'passkey', getErrorMessage( res ) );
 						}
 					} ).catch( function ( err ) {
 						setBusy( passkeyBtn, false );
@@ -317,6 +519,7 @@
 		init: function () {
 			var root = document;
 
+			wireDiagnosticsPanel();
 			refreshNonce();
 
 			var totpStartBtn = root.querySelector( '[data-h2f-totp-start]' );
@@ -328,7 +531,7 @@
 						if ( ! res.success ) {
 							return;
 						}
-						root.querySelector( '[data-h2f-qr-holder]' ).innerHTML = res.data.qr_svg;
+						renderQrCode( root.querySelector( '[data-h2f-qr-holder]' ), res.data.qr_svg, res.data.otpauth_uri );
 						root.querySelector( '[data-h2f-manual-secret]' ).textContent = res.data.secret;
 						root.querySelector( '[data-h2f-totp-setup-box]' ).style.display = 'block';
 						totpStartBtn.style.display = 'none';
@@ -355,7 +558,7 @@
 						if ( res.success ) {
 							window.location.reload();
 						} else {
-							showError( root, 'totp-confirm', res.data.message || H2F.i18n.genericError );
+							showError( root, 'totp-confirm', getErrorMessage( res ) );
 						}
 					} );
 				} );
@@ -512,7 +715,7 @@
 						if ( res.success ) {
 							window.location.reload();
 						} else {
-							showError( root, 'passkey-setup', res.data.message || H2F.i18n.genericError );
+							showError( root, 'passkey-setup', getErrorMessage( res ) );
 						}
 					} ).catch( function ( err ) {
 						setBusy( passkeyConfirmBtn, false );
