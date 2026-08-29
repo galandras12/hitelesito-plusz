@@ -32,7 +32,10 @@ class H2F_Email_2FA {
 
 		$code       = self::generate_code();
 		$lifetime   = (int) H2F_Settings::get( 'email_code_lifetime', 900 );
-		$expires_at = date( 'Y-m-d H:i:s', time() + $lifetime );
+		// Mindig UTC-ben (GMT) számolunk és tárolunk, hogy ne csúszhasson el a
+		// WordPress-ben beállított helyi idő és a szerver saját (gyakran UTC)
+		// rendszerideje között - lásd verify_and_consume() is.
+		$expires_at = gmdate( 'Y-m-d H:i:s', time() + $lifetime );
 
 		$wpdb->insert(
 			H2F_DB::table_email_codes(),
@@ -41,7 +44,7 @@ class H2F_Email_2FA {
 				'code_hash'  => wp_hash_password( $code ),
 				'expires_at' => $expires_at,
 				'used'       => 0,
-				'created_at' => current_time( 'mysql' ),
+				'created_at' => current_time( 'mysql', true ),
 			),
 			array( '%d', '%s', '%s', '%d', '%s' )
 		);
@@ -81,25 +84,35 @@ class H2F_Email_2FA {
 
 	/**
 	 * Kód ellenőrzése és felhasználtnak jelölése.
+	 *
+	 * @param int         $user_id
+	 * @param string      $code
+	 * @param string|null $reason Kimeneti paraméter (referencia) - a
+	 *                            visszautasítás oka diagnosztikai célra:
+	 *                            'no_active_code' | 'code_mismatch'.
 	 */
-	public static function verify_and_consume( $user_id, $code ) {
+	public static function verify_and_consume( $user_id, $code, &$reason = null ) {
 		global $wpdb;
 
 		$code = trim( $code );
 
+		// Mindig UTC-ben (GMT) hasonlítunk, összhangban az expires_at
+		// mentésekor használt gmdate()-tel - lásd send_code().
 		$row = $wpdb->get_row( $wpdb->prepare(
 			"SELECT * FROM " . H2F_DB::table_email_codes() . "
 			 WHERE user_id = %d AND used = 0 AND expires_at >= %s
 			 ORDER BY id DESC LIMIT 1",
 			$user_id,
-			current_time( 'mysql' )
+			current_time( 'mysql', true )
 		) );
 
 		if ( ! $row ) {
+			$reason = 'no_active_code';
 			return false;
 		}
 
 		if ( ! wp_check_password( $code, $row->code_hash ) ) {
+			$reason = 'code_mismatch';
 			return false;
 		}
 
@@ -116,9 +129,11 @@ class H2F_Email_2FA {
 
 	public static function cleanup_expired_codes() {
 		global $wpdb;
-		$wpdb->query(
-			"DELETE FROM " . H2F_DB::table_email_codes() . " WHERE expires_at < NOW() - INTERVAL 1 DAY"
-		);
+		$cutoff = gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS );
+		$wpdb->query( $wpdb->prepare(
+			"DELETE FROM " . H2F_DB::table_email_codes() . " WHERE expires_at < %s",
+			$cutoff
+		) );
 	}
 
 	public static function disable( $user_id ) {
