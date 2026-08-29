@@ -2,9 +2,9 @@
 Contributors: galandras12
 Tags: two factor, 2fa, totp, passkey, webauthn, security, brute force
 Requires at least: 5.8
-Tested up to: 7.0
-Requires PHP: 8.1
-Stable tag: 1.0
+Tested up to: 7.0.4
+Requires PHP: 8.0
+Stable tag: 1.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -47,6 +47,12 @@ Nem. A jelszavas bejelentkezés a megszokott módon, a `wp-login.php`-n történ
 Az admin a felhasználó profilszerkesztő oldalán, vagy a Hitelesítő+ admin felületen keresztül letilthatja az adott felhasználó bármelyik hitelesítő módszerét.
 
 == Changelog ==
+
+= 1.7 =
+* Javítva: Megszüntetve a sikeres 2FA azonosítás utáni végtelen bejelentkezési átirányítási ciklus, amely korábban megakadályozta a belépés véglegesítését.
+* Javítva: Az e-mailes 2FA kód ellenőrzése mostantól a felhasználóhoz tartozó összes aktív, még le nem járt kódot elfogadja; az újabb kód kérése nem érvényteleníti azonnal a korábbi kiadott kódokat.
+* Új: 30 másodperces kérés-korlátozás (rate-limiting throttle) az e-mail kódok kiküldésére a spammelés megelőzése érdekében.
+* Javítva: A frontend JS hibakezelése mostantól biztonságosan kezeli a nem-JSON szerverválaszokat (pl. `"0"`), megelőzve a téves JS hibaüzeneteket.
 
 = 1.6 =
 * Javítva: ha az `admin-ajax.php` valamilyen szerveroldali átírás, cache, beléptető proxy vagy részben megmaradó auth cookie miatt teljes HTML oldalt ad vissza HTTP 200-zal a várt JSON helyett, a frontend automatikusan átvált a plugin saját REST API tartalék végpontjára.
