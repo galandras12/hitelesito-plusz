@@ -5,9 +5,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 /** @var WP_User $user */
 /** @var array $session */
 
-$has_totp    = H2F_TOTP::is_confirmed( $user->ID );
-$has_passkey = H2F_Passkey::has_passkeys( $user->ID );
-$has_email   = 'hidden' !== H2F_Settings::get_policy_for_user( $user, 'email' );
+$has_totp       = H2F_TOTP::is_confirmed( $user->ID );
+$has_passkey    = H2F_Passkey::has_passkeys( $user->ID );
+$policy_email   = H2F_Settings::get_policy_for_user( $user, 'email' );
+$email_active   = (bool) get_user_meta( $user->ID, 'h2f_email_enabled', true );
+// Az e-mail opció akkor jelenik meg, ha nincs rejtve ÉS a felhasználó
+// bekapcsolta, VAGY a szerepköre miatt kötelező (utóbbi esetben előzetes
+// bekapcsolás nélkül is elérhetőnek kell lennie, különben nem tudna belépni).
+$has_email   = 'hidden' !== $policy_email && ( $email_active || 'required' === $policy_email );
 $has_backup  = H2F_Backup_Codes::has_codes( $user->ID );
 
 $methods_available = array();
@@ -139,6 +144,18 @@ $first_method = ! empty( $methods_available ) ? $methods_available[0] : '';
 				<button type="button" class="h2f-btn" data-h2f-submit="backup"><?php esc_html_e( 'Megerősítés', 'hitelesito-plusz' ); ?></button>
 			</div>
 
+		</div>
+
+		<div class="h2f-diagnostics-wrap">
+			<button type="button" class="h2f-diag-toggle" data-h2f-diagnostics-toggle style="display:none;"><?php esc_html_e( 'Hiba részleteinek megtekintése', 'hitelesito-plusz' ); ?></button>
+			<div class="h2f-diagnostics-panel" data-h2f-diagnostics style="display:none;">
+				<div class="h2f-diagnostics-head">
+					<strong><?php esc_html_e( 'Technikai hibarészletek', 'hitelesito-plusz' ); ?></strong>
+					<button type="button" class="h2f-copy-btn" data-h2f-diagnostics-copy><?php esc_html_e( 'Másolás', 'hitelesito-plusz' ); ?></button>
+				</div>
+				<pre data-h2f-diagnostics-text></pre>
+				<p class="h2f-diagnostics-hint"><?php esc_html_e( 'Ha problémát tapasztalsz, másold ki ezt a szöveget, és küldd el az oldal adminisztrátorának a pontos hiba beazonosításához.', 'hitelesito-plusz' ); ?></p>
+			</div>
 		</div>
 
 		<p class="h2f-footer-note"><?php esc_html_e( 'Hitelesítő+ - biztonságos kétfaktoros hitelesítés', 'hitelesito-plusz' ); ?></p>
