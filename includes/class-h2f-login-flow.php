@@ -20,6 +20,8 @@ class H2F_Login_Flow {
 	const PENDING_COOKIE = 'h2f_pending_token';
 	const PENDING_TTL    = 600; // 10 perc
 
+	protected static $finalizing = false;
+
 	public static function init() {
 		add_action( 'wp_login', array( __CLASS__, 'maybe_intercept_login' ), 20, 2 );
 		add_action( 'template_redirect', array( __CLASS__, 'route' ) );
@@ -170,6 +172,10 @@ class H2F_Login_Flow {
 	}
 
 	public static function maybe_intercept_login( $user_login, $user = null ) {
+		if ( self::$finalizing ) {
+			return;
+		}
+
 		if ( ! $user ) {
 			$user = get_user_by( 'login', $user_login );
 		}
@@ -223,10 +229,13 @@ class H2F_Login_Flow {
 	}
 
 	protected static function set_pending_cookie( $value, $expires ) {
+		$domain = defined( 'COOKIE_DOMAIN' ) && COOKIE_DOMAIN ? COOKIE_DOMAIN : '';
+		$path   = defined( 'COOKIEPATH' ) && COOKIEPATH ? COOKIEPATH : '/';
+
 		$args = array(
 			'expires'  => $expires,
-			'path'     => COOKIEPATH ?: '/',
-			'domain'   => COOKIE_DOMAIN,
+			'path'     => $path,
+			'domain'   => $domain,
 			'secure'   => is_ssl(),
 			'httponly' => true,
 			'samesite' => 'Lax',
@@ -249,10 +258,15 @@ class H2F_Login_Flow {
 			return false;
 		}
 
+		self::$finalizing = true;
+		remove_action( 'wp_login', array( __CLASS__, 'maybe_intercept_login' ), 20 );
+
 		wp_set_auth_cookie( $user->ID, ! empty( $session['remember'] ) );
 		wp_set_current_user( $user->ID );
 		do_action( 'wp_login', $user->user_login, $user );
 		self::clear_pending_session( $session['token'] );
+
+		self::$finalizing = false;
 
 		return true;
 	}
