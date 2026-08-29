@@ -116,7 +116,7 @@ if ( ! function_exists( 'h2f_policy_pill' ) ) {
 						<?php foreach ( $passkeys as $pk ) : ?>
 							<div class="h2f-passkey-item" data-h2f-passkey-row="<?php echo esc_attr( $pk->id ); ?>">
 								<span>🔐 <?php echo esc_html( $pk->device_name ? $pk->device_name : __( 'Névtelen eszköz', 'hitelesito-plusz' ) ); ?>
-									<small style="color:#a7aaad;"> - <?php echo esc_html( date_i18n( 'Y-m-d', strtotime( $pk->created_at ) ) ); ?></small>
+									<small style="color:#a7aaad;"> - <?php echo esc_html( get_date_from_gmt( $pk->created_at, 'Y-m-d' ) ); ?></small>
 								</span>
 								<button type="button" class="h2f-danger-link" data-h2f-passkey-delete="<?php echo esc_attr( $pk->id ); ?>"><?php esc_html_e( 'Törlés', 'hitelesito-plusz' ); ?></button>
 							</div>
@@ -193,6 +193,18 @@ if ( ! function_exists( 'h2f_policy_pill' ) ) {
 			<p style="text-align:center; margin-top:8px;">
 				<a href="<?php echo esc_url( home_url( '/' ) ); ?>" style="color:#6b7280; font-size:13px; text-decoration:none;">← <?php esc_html_e( 'Vissza a főoldalra', 'hitelesito-plusz' ); ?></a>
 			</p>
+		</div>
+
+		<div class="h2f-diagnostics-wrap">
+			<button type="button" class="h2f-diag-toggle" data-h2f-diagnostics-toggle style="display:none;"><?php esc_html_e( 'Hiba részleteinek megtekintése', 'hitelesito-plusz' ); ?></button>
+			<div class="h2f-diagnostics-panel" data-h2f-diagnostics style="display:none;">
+				<div class="h2f-diagnostics-head">
+					<strong><?php esc_html_e( 'Technikai hibarészletek', 'hitelesito-plusz' ); ?></strong>
+					<button type="button" class="h2f-copy-btn" data-h2f-diagnostics-copy><?php esc_html_e( 'Másolás', 'hitelesito-plusz' ); ?></button>
+				</div>
+				<pre data-h2f-diagnostics-text></pre>
+				<p class="h2f-diagnostics-hint"><?php esc_html_e( 'Ha problémát tapasztalsz, másold ki ezt a szöveget, és küldd el az oldal adminisztrátorának a pontos hiba beazonosításához.', 'hitelesito-plusz' ); ?></p>
+			</div>
 		</div>
 	</div>
 
