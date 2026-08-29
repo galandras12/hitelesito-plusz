@@ -21,20 +21,16 @@ class H2F_Email_2FA {
 
 		global $wpdb;
 
-		// Korábbi, még fel nem használt kódok érvénytelenítése.
-		$wpdb->update(
-			H2F_DB::table_email_codes(),
-			array( 'used' => 1 ),
-			array( 'user_id' => $user->ID, 'used' => 0 ),
-			array( '%d' ),
-			array( '%d', '%d' )
-		);
+		// Kérés-korlátozás (throttle): legfeljebb 1 kód 30 másodpercenként.
+		$throttle_key = 'h2f_email_code_throttle_' . $user->ID;
+		if ( get_transient( $throttle_key ) ) {
+			return new WP_Error( 'h2f_throttled', __( 'Kérjük, várj legalább 30 másodpercet az újabb kód kérése előtt.', 'hitelesito-plusz' ) );
+		}
+		set_transient( $throttle_key, 1, 30 );
 
 		$code       = self::generate_code();
 		$lifetime   = (int) H2F_Settings::get( 'email_code_lifetime', 900 );
-		// Mindig UTC-ben (GMT) számolunk és tárolunk, hogy ne csúszhasson el a
-		// WordPress-ben beállított helyi idő és a szerver saját (gyakran UTC)
-		// rendszerideje között - lásd verify_and_consume() is.
+		$now_gmt    = gmdate( 'Y-m-d H:i:s' );
 		$expires_at = gmdate( 'Y-m-d H:i:s', time() + $lifetime );
 
 		$wpdb->insert(
@@ -44,7 +40,7 @@ class H2F_Email_2FA {
 				'code_hash'  => wp_hash_password( $code ),
 				'expires_at' => $expires_at,
 				'used'       => 0,
-				'created_at' => current_time( 'mysql', true ),
+				'created_at' => $now_gmt,
 			),
 			array( '%d', '%s', '%s', '%d', '%s' )
 		);
@@ -94,37 +90,39 @@ class H2F_Email_2FA {
 	public static function verify_and_consume( $user_id, $code, &$reason = null ) {
 		global $wpdb;
 
-		$code = trim( $code );
+		$code    = trim( $code );
+		$now_gmt = gmdate( 'Y-m-d H:i:s' );
 
-		// Mindig UTC-ben (GMT) hasonlítunk, összhangban az expires_at
-		// mentésekor használt gmdate()-tel - lásd send_code().
-		$row = $wpdb->get_row( $wpdb->prepare(
+		// Mindig UTC-ben (GMT) hasonlítunk, és az összes még érvényes,
+		// fel nem használt kódot ellenőrizzük a felhasználóhoz (ha pl. resend volt).
+		$rows = $wpdb->get_results( $wpdb->prepare(
 			"SELECT * FROM " . H2F_DB::table_email_codes() . "
 			 WHERE user_id = %d AND used = 0 AND expires_at >= %s
-			 ORDER BY id DESC LIMIT 1",
+			 ORDER BY id DESC",
 			$user_id,
-			current_time( 'mysql', true )
+			$now_gmt
 		) );
 
-		if ( ! $row ) {
+		if ( empty( $rows ) ) {
 			$reason = 'no_active_code';
 			return false;
 		}
 
-		if ( ! wp_check_password( $code, $row->code_hash ) ) {
-			$reason = 'code_mismatch';
-			return false;
+		foreach ( $rows as $row ) {
+			if ( wp_check_password( $code, $row->code_hash ) ) {
+				$wpdb->update(
+					H2F_DB::table_email_codes(),
+					array( 'used' => 1 ),
+					array( 'id' => $row->id ),
+					array( '%d' ),
+					array( '%d' )
+				);
+				return true;
+			}
 		}
 
-		$wpdb->update(
-			H2F_DB::table_email_codes(),
-			array( 'used' => 1 ),
-			array( 'id' => $row->id ),
-			array( '%d' ),
-			array( '%d' )
-		);
-
-		return true;
+		$reason = 'code_mismatch';
+		return false;
 	}
 
 	public static function cleanup_expired_codes() {
