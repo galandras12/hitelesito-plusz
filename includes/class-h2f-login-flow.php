@@ -94,6 +94,7 @@ class H2F_Login_Flow {
 
 		$data = array(
 			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+			'restUrl' => esc_url_raw( rest_url( 'hitelesito-plusz/v1/ajax/' ) ),
 			'i18n'    => array(
 				'copied'          => __( 'Másolva!', 'hitelesito-plusz' ),
 				'copy'            => __( 'Másolás', 'hitelesito-plusz' ),
@@ -182,7 +183,7 @@ class H2F_Login_Flow {
 
 		$redirect_to = '';
 		if ( ! empty( $_REQUEST['redirect_to'] ) ) {
-			$redirect_to = esc_url_raw( wp_unslash( $_REQUEST['redirect_to'] ) );
+			$redirect_to = wp_validate_redirect( esc_url_raw( wp_unslash( $_REQUEST['redirect_to'] ) ), admin_url() );
 		}
 
 		// Azonnal érvénytelenítjük a most létrejött teljes jogú munkamenetet.
@@ -197,8 +198,7 @@ class H2F_Login_Flow {
 			'remember'    => ! empty( $_REQUEST['rememberme'] ),
 		), self::PENDING_TTL );
 
-		$secure = is_ssl();
-		setcookie( self::PENDING_COOKIE, $token, time() + self::PENDING_TTL, COOKIEPATH ?: '/', COOKIE_DOMAIN, $secure, true );
+		self::set_pending_cookie( $token, time() + self::PENDING_TTL );
 
 		wp_safe_redirect( self::verify_url() );
 		exit;
@@ -219,8 +219,25 @@ class H2F_Login_Flow {
 
 	public static function clear_pending_session( $token ) {
 		delete_transient( 'h2f_pending_' . $token );
-		$secure = is_ssl();
-		setcookie( self::PENDING_COOKIE, '', time() - 3600, COOKIEPATH ?: '/', COOKIE_DOMAIN, $secure, true );
+		self::set_pending_cookie( '', time() - 3600 );
+	}
+
+	protected static function set_pending_cookie( $value, $expires ) {
+		$args = array(
+			'expires'  => $expires,
+			'path'     => COOKIEPATH ?: '/',
+			'domain'   => COOKIE_DOMAIN,
+			'secure'   => is_ssl(),
+			'httponly' => true,
+			'samesite' => 'Lax',
+		);
+
+		if ( PHP_VERSION_ID >= 70300 ) {
+			setcookie( self::PENDING_COOKIE, $value, $args );
+			return;
+		}
+
+		setcookie( self::PENDING_COOKIE, $value, $expires, $args['path'] . '; samesite=' . $args['samesite'], $args['domain'], $args['secure'], $args['httponly'] );
 	}
 
 	/**
@@ -242,7 +259,7 @@ class H2F_Login_Flow {
 
 	public static function get_redirect_after_login( $session ) {
 		if ( ! empty( $session['redirect_to'] ) ) {
-			return $session['redirect_to'];
+			return wp_validate_redirect( $session['redirect_to'], admin_url() );
 		}
 		return admin_url();
 	}

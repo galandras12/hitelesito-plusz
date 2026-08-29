@@ -14,13 +14,21 @@ class H2F_Ajax {
 		add_action( 'wp_ajax_h2f_refresh_nonce', array( __CLASS__, 'refresh_nonce' ) );
 		add_action( 'wp_ajax_nopriv_h2f_refresh_nonce', array( __CLASS__, 'refresh_nonce' ) );
 
-		// --- Bejelentkezés közbeni ellenőrzés (nem bejelentkezett állapot) ---
-		self::safe_register( 'wp_ajax_nopriv_h2f_verify_totp', 'verify_totp_pending' );
-		self::safe_register( 'wp_ajax_nopriv_h2f_verify_backup', 'verify_backup_pending' );
-		self::safe_register( 'wp_ajax_nopriv_h2f_send_email_code', 'send_email_code_pending' );
-		self::safe_register( 'wp_ajax_nopriv_h2f_verify_email', 'verify_email_pending' );
-		self::safe_register( 'wp_ajax_nopriv_h2f_passkey_auth_options', 'passkey_auth_options_pending' );
-		self::safe_register( 'wp_ajax_nopriv_h2f_passkey_auth_verify', 'passkey_auth_verify_pending' );
+		// --- Bejelentkezés közbeni ellenőrzés (nem bejelentkezett / részben bejelentkezett állapot) ---
+		foreach ( array(
+			'h2f_verify_totp'           => 'verify_totp_pending',
+			'h2f_verify_backup'         => 'verify_backup_pending',
+			'h2f_send_email_code'        => 'send_email_code_pending',
+			'h2f_verify_email'          => 'verify_email_pending',
+			'h2f_passkey_auth_options'   => 'passkey_auth_options_pending',
+			'h2f_passkey_auth_verify'    => 'passkey_auth_verify_pending',
+		) as $action => $method ) {
+			// Mindkét AJAX variánst regisztráljuk: egyes cache/proxy/login pluginok
+			// a jelszavas belépés utáni auth cookie törlést késleltetve érzékelik,
+			// ilyenkor a wp_ajax_ ág futna, ami regisztráció nélkül HTML/0 választ adhat.
+			self::safe_register( 'wp_ajax_nopriv_' . $action, $method );
+			self::safe_register( 'wp_ajax_' . $action, $method );
+		}
 
 		// --- Saját fiók beállítása (bejelentkezett állapot) ---
 		self::safe_register( 'wp_ajax_h2f_setup_totp_start', 'setup_totp_start' );
@@ -32,6 +40,54 @@ class H2F_Ajax {
 		self::safe_register( 'wp_ajax_h2f_setup_passkey_register_options', 'setup_passkey_register_options' );
 		self::safe_register( 'wp_ajax_h2f_setup_passkey_register_verify', 'setup_passkey_register_verify' );
 		self::safe_register( 'wp_ajax_h2f_setup_passkey_delete', 'setup_passkey_delete' );
+
+		add_action( 'rest_api_init', array( __CLASS__, 'register_rest_routes' ) );
+	}
+
+	public static function register_rest_routes() {
+		register_rest_route( 'hitelesito-plusz/v1', '/ajax/(?P<action>h2f_[a-z0-9_]+)', array(
+			'methods'             => 'POST',
+			'callback'            => array( __CLASS__, 'handle_rest_action' ),
+			'permission_callback' => '__return_true',
+			'args'                => array(
+				'action' => array(
+					'sanitize_callback' => 'sanitize_key',
+				),
+			),
+		) );
+	}
+
+	public static function handle_rest_action( WP_REST_Request $request ) {
+		$map = array(
+			'h2f_refresh_nonce'                   => 'refresh_nonce',
+			'h2f_verify_totp'                     => 'verify_totp_pending',
+			'h2f_verify_backup'                   => 'verify_backup_pending',
+			'h2f_send_email_code'                  => 'send_email_code_pending',
+			'h2f_verify_email'                    => 'verify_email_pending',
+			'h2f_passkey_auth_options'             => 'passkey_auth_options_pending',
+			'h2f_passkey_auth_verify'              => 'passkey_auth_verify_pending',
+			'h2f_setup_totp_start'                 => 'setup_totp_start',
+			'h2f_setup_totp_confirm'               => 'setup_totp_confirm',
+			'h2f_setup_totp_disable'               => 'setup_totp_disable',
+			'h2f_setup_backup_generate'            => 'setup_backup_generate',
+			'h2f_setup_backup_disable'             => 'setup_backup_disable',
+			'h2f_setup_email_toggle'               => 'setup_email_toggle',
+			'h2f_setup_passkey_register_options'   => 'setup_passkey_register_options',
+			'h2f_setup_passkey_register_verify'    => 'setup_passkey_register_verify',
+			'h2f_setup_passkey_delete'             => 'setup_passkey_delete',
+		);
+
+		$action = $request->get_param( 'action' );
+		if ( empty( $map[ $action ] ) ) {
+			wp_send_json_error( array( 'message' => __( 'Ismeretlen Hitelesítő+ művelet.', 'hitelesito-plusz' ) ), 400 );
+		}
+
+		foreach ( $request->get_params() as $key => $value ) {
+			$_POST[ $key ] = $value;
+		}
+		$_POST['action'] = $action;
+
+		self::safe_call( array( __CLASS__, $map[ $action ] ) );
 	}
 
 	/**
