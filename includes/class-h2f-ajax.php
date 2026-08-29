@@ -15,23 +15,59 @@ class H2F_Ajax {
 		add_action( 'wp_ajax_nopriv_h2f_refresh_nonce', array( __CLASS__, 'refresh_nonce' ) );
 
 		// --- Bejelentkezés közbeni ellenőrzés (nem bejelentkezett állapot) ---
-		add_action( 'wp_ajax_nopriv_h2f_verify_totp', array( __CLASS__, 'verify_totp_pending' ) );
-		add_action( 'wp_ajax_nopriv_h2f_verify_backup', array( __CLASS__, 'verify_backup_pending' ) );
-		add_action( 'wp_ajax_nopriv_h2f_send_email_code', array( __CLASS__, 'send_email_code_pending' ) );
-		add_action( 'wp_ajax_nopriv_h2f_verify_email', array( __CLASS__, 'verify_email_pending' ) );
-		add_action( 'wp_ajax_nopriv_h2f_passkey_auth_options', array( __CLASS__, 'passkey_auth_options_pending' ) );
-		add_action( 'wp_ajax_nopriv_h2f_passkey_auth_verify', array( __CLASS__, 'passkey_auth_verify_pending' ) );
+		self::safe_register( 'wp_ajax_nopriv_h2f_verify_totp', 'verify_totp_pending' );
+		self::safe_register( 'wp_ajax_nopriv_h2f_verify_backup', 'verify_backup_pending' );
+		self::safe_register( 'wp_ajax_nopriv_h2f_send_email_code', 'send_email_code_pending' );
+		self::safe_register( 'wp_ajax_nopriv_h2f_verify_email', 'verify_email_pending' );
+		self::safe_register( 'wp_ajax_nopriv_h2f_passkey_auth_options', 'passkey_auth_options_pending' );
+		self::safe_register( 'wp_ajax_nopriv_h2f_passkey_auth_verify', 'passkey_auth_verify_pending' );
 
 		// --- Saját fiók beállítása (bejelentkezett állapot) ---
-		add_action( 'wp_ajax_h2f_setup_totp_start', array( __CLASS__, 'setup_totp_start' ) );
-		add_action( 'wp_ajax_h2f_setup_totp_confirm', array( __CLASS__, 'setup_totp_confirm' ) );
-		add_action( 'wp_ajax_h2f_setup_totp_disable', array( __CLASS__, 'setup_totp_disable' ) );
-		add_action( 'wp_ajax_h2f_setup_backup_generate', array( __CLASS__, 'setup_backup_generate' ) );
-		add_action( 'wp_ajax_h2f_setup_backup_disable', array( __CLASS__, 'setup_backup_disable' ) );
-		add_action( 'wp_ajax_h2f_setup_email_toggle', array( __CLASS__, 'setup_email_toggle' ) );
-		add_action( 'wp_ajax_h2f_setup_passkey_register_options', array( __CLASS__, 'setup_passkey_register_options' ) );
-		add_action( 'wp_ajax_h2f_setup_passkey_register_verify', array( __CLASS__, 'setup_passkey_register_verify' ) );
-		add_action( 'wp_ajax_h2f_setup_passkey_delete', array( __CLASS__, 'setup_passkey_delete' ) );
+		self::safe_register( 'wp_ajax_h2f_setup_totp_start', 'setup_totp_start' );
+		self::safe_register( 'wp_ajax_h2f_setup_totp_confirm', 'setup_totp_confirm' );
+		self::safe_register( 'wp_ajax_h2f_setup_totp_disable', 'setup_totp_disable' );
+		self::safe_register( 'wp_ajax_h2f_setup_backup_generate', 'setup_backup_generate' );
+		self::safe_register( 'wp_ajax_h2f_setup_backup_disable', 'setup_backup_disable' );
+		self::safe_register( 'wp_ajax_h2f_setup_email_toggle', 'setup_email_toggle' );
+		self::safe_register( 'wp_ajax_h2f_setup_passkey_register_options', 'setup_passkey_register_options' );
+		self::safe_register( 'wp_ajax_h2f_setup_passkey_register_verify', 'setup_passkey_register_verify' );
+		self::safe_register( 'wp_ajax_h2f_setup_passkey_delete', 'setup_passkey_delete' );
+	}
+
+	/**
+	 * A hookot egy védőrétegen (safe_call) keresztül regisztrálja, hogy
+	 * semmilyen PHP figyelmeztetés/hiba ne törhesse meg a JSON választ, és
+	 * hogy a felhasználó (illetve WP_DEBUG esetén a fejlesztő) mindig
+	 * konkrét, érthető hibaüzenetet kapjon egy váratlan hiba esetén is.
+	 */
+	protected static function safe_register( $hook, $method ) {
+		add_action( $hook, function () use ( $method ) {
+			self::safe_call( array( __CLASS__, $method ) );
+		} );
+	}
+
+	protected static function safe_call( $callback ) {
+		$previous_display_errors = ini_get( 'display_errors' );
+		// Ne törhessen bele semmilyen kiírt PHP figyelmeztetés/notice a JSON válaszba.
+		ini_set( 'display_errors', '0' );
+
+		try {
+			call_user_func( $callback );
+		} catch ( \Throwable $e ) {
+			$debug = defined( 'WP_DEBUG' ) && WP_DEBUG;
+			$message = $debug
+				? sprintf( 'PHP hiba: %s (%s:%d)', $e->getMessage(), basename( $e->getFile() ), $e->getLine() )
+				: __( 'Váratlan szerverhiba történt. Próbáld újra, vagy kérd az oldal adminisztrátorát, hogy ellenőrizze a szerver hibanaplóját (debug.log).', 'hitelesito-plusz' );
+
+			if ( function_exists( 'error_log' ) ) {
+				error_log( 'Hitelesítő+ AJAX hiba: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() ); // phpcs:ignore
+			}
+
+			ini_set( 'display_errors', $previous_display_errors );
+			wp_send_json_error( array( 'message' => $message ) );
+		}
+
+		ini_set( 'display_errors', $previous_display_errors );
 	}
 
 	/**
@@ -81,17 +117,14 @@ class H2F_Ajax {
 		}
 		$data['token'] = $token;
 
-		// Nem halálosan ("wp_die(-1)") ellenőrizzük a nonce-ot, hanem érthető
-		// JSON hibaüzenettel térünk vissza - ha pl. egy gyorsítótárazó plugin
-		// elavult nonce-ot szolgált ki a HTML-ben, a frontend ezt felismeri és
-		// automatikusan friss nonce-ot kér, majd újrapróbálja a műveletet.
-		if ( ! check_ajax_referer( 'h2f_pending_' . $token, 'nonce', false ) ) {
-			wp_send_json_error( array(
-				'message'      => __( 'A munkamenet időközben megújult, próbáld újra.', 'hitelesito-plusz' ),
-				'nonce_expired' => true,
-			), 403 );
-		}
-
+		// Megjegyzés: ez a végpont a bejelentkezés utáni, még nem
+		// hitelesített állapotban fut, ahol a felhasználó nincs bejelentkezve
+		// (nincs WP nonce-hoz köthető munkamenete). A védelmet maga a
+		// kriptográfiailag véletlenszerű, httponly, 10 percig érvényes
+		// "pending" token adja (csak a böngésző ismeri) - ezért itt
+		// szándékosan nem kérünk külön nonce-ot, mivel az egyes hosztingok/
+		// gyorsítótárazó rendszerek eltérő módon kezelhetik a beágyazott
+		// nonce frissességét, ami korábban téves hibaüzenetekhez vezetett.
 		return $data;
 	}
 
@@ -156,9 +189,20 @@ class H2F_Ajax {
 		$session = self::get_pending_session_or_die();
 		$code    = isset( $_POST['code'] ) ? sanitize_text_field( wp_unslash( $_POST['code'] ) ) : '';
 
-		if ( ! H2F_Email_2FA::verify_and_consume( $session['user_id'], $code ) ) {
+		$reason = null;
+		if ( ! H2F_Email_2FA::verify_and_consume( $session['user_id'], $code, $reason ) ) {
 			H2F_Admin_Alert::record_failure( $session['user_id'], 'email' );
-			wp_send_json_error( array( 'message' => __( 'Hibás vagy lejárt kód.', 'hitelesito-plusz' ) ) );
+
+			$reason_labels = array(
+				'no_active_code' => __( 'Nincs érvényes, még fel nem használt kód ehhez a fiókhoz (lehet, hogy már felhasználtad, vagy időközben újat kértél).', 'hitelesito-plusz' ),
+				'code_mismatch'  => __( 'A megadott kód nem egyezik a kiküldött kóddal.', 'hitelesito-plusz' ),
+			);
+
+			wp_send_json_error( array(
+				'message' => __( 'Hibás vagy lejárt kód.', 'hitelesito-plusz' ),
+				'reason'  => $reason,
+				'detail'  => isset( $reason_labels[ $reason ] ) ? $reason_labels[ $reason ] : null,
+			) );
 		}
 
 		self::finalize_and_respond( $session );
