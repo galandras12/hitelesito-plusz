@@ -31,7 +31,7 @@ class H2F_Backup_Codes {
 					'user_id'    => $user_id,
 					'code_hash'  => wp_hash_password( $code ),
 					'used'       => 0,
-					'created_at' => current_time( 'mysql' ),
+					'created_at' => current_time( 'mysql', true ),
 				),
 				array( '%d', '%s', '%d', '%s' )
 			);
@@ -84,7 +84,7 @@ class H2F_Backup_Codes {
 			if ( wp_check_password( $code, $row->code_hash ) ) {
 				$wpdb->update(
 					H2F_DB::table_backup_codes(),
-					array( 'used' => 1, 'used_at' => current_time( 'mysql' ) ),
+					array( 'used' => 1, 'used_at' => current_time( 'mysql', true ) ),
 					array( 'id' => $row->id ),
 					array( '%d', '%s' ),
 					array( '%d' )
