@@ -139,7 +139,7 @@ class H2F_TOTP {
 				'user_id'    => $user_id,
 				'secret'     => $secret,
 				'confirmed'  => 0,
-				'created_at' => current_time( 'mysql' ),
+				'created_at' => current_time( 'mysql', true ),
 			),
 			array( '%d', '%s', '%d', '%s' )
 		);
