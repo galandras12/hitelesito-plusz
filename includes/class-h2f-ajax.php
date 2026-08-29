@@ -173,19 +173,31 @@ class H2F_Ajax {
 		}
 		$data['token'] = $token;
 
-		// Megjegyzés: ez a végpont a bejelentkezés utáni, még nem
-		// hitelesített állapotban fut, ahol a felhasználó nincs bejelentkezve
-		// (nincs WP nonce-hoz köthető munkamenete). A védelmet maga a
-		// kriptográfiailag véletlenszerű, httponly, 10 percig érvényes
-		// "pending" token adja (csak a böngésző ismeri) - ezért itt
-		// szándékosan nem kérünk külön nonce-ot, mivel az egyes hosztingok/
-		// gyorsítótárazó rendszerek eltérő módon kezelhetik a beágyazott
-		// nonce frissességét, ami korábban téves hibaüzenetekhez vezetett.
+		$user = get_userdata( $data['user_id'] );
+		if ( $user && H2F_Brute_Force::is_locked_out( H2F_Brute_Force::get_ip(), $user->user_login ) ) {
+			wp_send_json_error( array(
+				'message' => __( 'Túl sok sikertelen kísérlet. Kérjük, próbáld újra később.', 'hitelesito-plusz' ),
+				'locked'  => true,
+			), 429 );
+		}
+
 		return $data;
+	}
+
+	protected static function record_failed_2fa( $user_id, $method ) {
+		H2F_Admin_Alert::record_failure( $user_id, $method );
+		$user = get_userdata( $user_id );
+		if ( $user ) {
+			H2F_Brute_Force::log_failed_attempt( $user->user_login );
+		}
 	}
 
 	protected static function finalize_and_respond( $session ) {
 		H2F_Admin_Alert::reset_counter( $session['user_id'] );
+		$user = get_userdata( $session['user_id'] );
+		if ( $user ) {
+			H2F_Brute_Force::log_successful_attempt( $user->user_login, $user );
+		}
 		H2F_Login_Flow::finalize_login( $session );
 		wp_send_json_success( array(
 			'redirect' => H2F_Login_Flow::get_redirect_after_login( $session ),
@@ -206,7 +218,7 @@ class H2F_Ajax {
 		}
 
 		if ( ! H2F_TOTP::verify( $row->secret, $code ) ) {
-			H2F_Admin_Alert::record_failure( $session['user_id'], 'totp' );
+			self::record_failed_2fa( $session['user_id'], 'totp' );
 			wp_send_json_error( array( 'message' => __( 'Hibás vagy lejárt kód.', 'hitelesito-plusz' ) ) );
 		}
 
@@ -218,7 +230,7 @@ class H2F_Ajax {
 		$code    = isset( $_POST['code'] ) ? sanitize_text_field( wp_unslash( $_POST['code'] ) ) : '';
 
 		if ( ! H2F_Backup_Codes::verify_and_consume( $session['user_id'], $code ) ) {
-			H2F_Admin_Alert::record_failure( $session['user_id'], 'backup' );
+			self::record_failed_2fa( $session['user_id'], 'backup' );
 			wp_send_json_error( array( 'message' => __( 'Hibás vagy már felhasznált biztonsági kód.', 'hitelesito-plusz' ) ) );
 		}
 
@@ -250,7 +262,7 @@ class H2F_Ajax {
 
 		$reason = null;
 		if ( ! H2F_Email_2FA::verify_and_consume( $session['user_id'], $code, $reason ) ) {
-			H2F_Admin_Alert::record_failure( $session['user_id'], 'email' );
+			self::record_failed_2fa( $session['user_id'], 'email' );
 
 			$reason_labels = array(
 				'no_active_code' => __( 'Nincs érvényes, még fel nem használt kód ehhez a fiókhoz (lehet, hogy már felhasználtad, vagy időközben újat kértél).', 'hitelesito-plusz' ),
@@ -284,7 +296,7 @@ class H2F_Ajax {
 		$result = H2F_Passkey::verify_authentication( $session['user_id'], $credential );
 
 		if ( is_wp_error( $result ) ) {
-			H2F_Admin_Alert::record_failure( $session['user_id'], 'passkey' );
+			self::record_failed_2fa( $session['user_id'], 'passkey' );
 			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
 		}
 

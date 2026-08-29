@@ -35,6 +35,7 @@ The plugin offers 4 distinct authentication methods:
 
 - **Isolated 2FA Verification Page:** Password authentication takes place on the standard `wp-login.php`. Upon successful password entry, users are redirected to a dedicated, responsive 2FA verification page (`/?h2f_action=verify`).
 - **Role-Based Policy Matrix:** Administrators can configure policy states (**Required**, **Optional**, or **Hidden**) for each authentication method individually per WordPress user role (Administrator, Editor, Author, Subscriber, etc.).
+- **Brute-Force Protection:** Built-in IP and username tracking with temporary lockouts covering both primary password login and secondary 2FA verification attempts (TOTP, Email, Backup codes, Passkeys).
 - **Brute-Force Protection:** Built-in IP and username login attempt tracking with temporary lockouts to prevent automated brute-force attacks.
 - **Admin Security Alerts:** Automated email notifications sent to site administrators upon repeated failed 2FA attempts on a user account.
 - **Shortcode Support:** Embed the `[hitelesito_plusz]` shortcode on any page, post, or member dashboard to allow users to manage their 2FA credentials on the frontend.
@@ -94,6 +95,7 @@ A bővítmény 4 különböző hitelesítési módszert kínál:
   - **Kötelező (Required):** A szerepkörbe tartozó felhasználóknak kötelező használniuk/beállítaniuk az adott módszert.
   - **Opcionális (Optional):** A felhasználó szabadon dönthet a használatáról.
   - **Rejtett (Hidden):** Az adott szerepkör számára nem érhető el a módszer.
+- **Brute Force védelem:** IP-cím és felhasználónév alapú kísérletszámlálás és ideiglenes zárolás mind a jelszavas belépésnél, mind a 2FA-kódok (TOTP, E-mail, Biztonsági kódok, Passkey) ellenőrzésénél.
 - **Brute Force védelem:** IP-cím és felhasználónév alapú kísérletszámlálás és ideiglenes zárolás sikertelen próbálkozások esetén.
 - **Adminisztrátori riasztás:** Automatikus e-mail értesítés küldése az adminisztrátoroknak gyanús, ismételten sikertelen 2FA belépési kísérletek esetén.
 - **Shortcode támogatás:** A `[hitelesito_plusz]` shortcode segítségével a kétfaktoros beállítási felület bármelyik WordPress oldalba, bejegyzésbe vagy tagi felületre beágyazható.

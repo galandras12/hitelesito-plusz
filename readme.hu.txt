@@ -49,6 +49,7 @@ Az admin a felhasználó profilszerkesztő oldalán, vagy a Hitelesítő+ admin 
 == Changelog ==
 
 = 1.7 =
+* Biztonság: A brute force védelem mostantól kiterjed a 2FA-kód ellenőrző végpontokra is (TOTP, e-mail kód, biztonsági kódok, Passkey), megakadályozva a 2FA kódok korlátlan próbálgatását.
 * Javítva: Megszüntetve a sikeres 2FA azonosítás utáni végtelen bejelentkezési átirányítási ciklus, amely korábban megakadályozta a belépés véglegesítését.
 * Javítva: Az e-mailes 2FA kód ellenőrzése mostantól a felhasználóhoz tartozó összes aktív, még le nem járt kódot elfogadja; az újabb kód kérése nem érvényteleníti azonnal a korábbi kiadott kódokat.
 * Új: 30 másodperces kérés-korlátozás (rate-limiting throttle) az e-mail kódok kiküldésére a spammelés megelőzése érdekében.

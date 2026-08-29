@@ -91,6 +91,24 @@ class MockWPDB {
 		return ! empty( $res ) ? $res[0] : null;
 	}
 
+	public function get_var( $query ) {
+		if ( strpos( $query, 'h2f_login_attempts' ) !== false ) {
+			preg_match( "/ip_address = '([^']+)' OR username = '([^']+)'/", $query, $m );
+			$ip = isset( $m[1] ) ? $m[1] : '';
+			$username = isset( $m[2] ) ? $m[2] : '';
+			$table = $this->prefix . 'h2f_login_attempts';
+			$rows = isset( $this->tables[ $table ] ) ? $this->tables[ $table ] : array();
+			$count = 0;
+			foreach ( $rows as $r ) {
+				if ( ( $r->ip_address === $ip || $r->username === $username ) && $r->success == 0 ) {
+					$count++;
+				}
+			}
+			return $count;
+		}
+		return 0;
+	}
+
 	public function query( $q ) { return true; }
 	public function delete( $table, $where, $format = null ) {
 		if ( ! isset( $this->tables[ $table ] ) ) return 0;
@@ -120,6 +138,9 @@ $GLOBALS['transients'] = array();
 $GLOBALS['wp_login_actions'] = array();
 $GLOBALS['auth_cookie_set'] = false;
 
+function sanitize_text_field( $str ) { return trim( (string) $str ); }
+function wp_unslash( $str ) { return $str; }
+function current_time( $type, $gmt = false ) { return gmdate( 'Y-m-d H:i:s' ); }
 function is_ssl() { return false; }
 function get_option( $key, $default = false ) { return $default; }
 function wp_parse_args( $args, $defaults = array() ) {
@@ -200,6 +221,7 @@ function do_action( $tag, ...$args ) {
 require_once __DIR__ . '/../includes/class-h2f-db.php';
 require_once __DIR__ . '/../includes/class-h2f-settings.php';
 require_once __DIR__ . '/../includes/class-h2f-email-2fa.php';
+require_once __DIR__ . '/../includes/class-h2f-brute-force.php';
 require_once __DIR__ . '/../includes/class-h2f-login-flow.php';
 
 // --- Test 1: Email Code Sending & Multi-code verification ---
@@ -266,5 +288,17 @@ assert( $fin_res === true, 'finalize_login failed' );
 assert( $GLOBALS['auth_cookie_set'] === true, 'Auth cookie should remain TRUE after finalize_login' );
 
 echo "-> Login Flow Finalization Test Passed!\n\n";
+
+// --- Test 3: Brute Force Protection on 2FA Attempts ---
+echo "Test 3: Brute Force Protection on 2FA Attempts\n";
+
+for ( $i = 0; $i < 5; $i++ ) {
+	H2F_Brute_Force::log_failed_attempt( 'testuser' );
+}
+
+$is_locked = H2F_Brute_Force::is_locked_out( '0.0.0.0', 'testuser' );
+assert( $is_locked === true, 'Username should be locked out after 5 failed attempts' );
+
+echo "-> Brute Force 2FA Protection Test Passed!\n\n";
 
 echo "ALL TESTS PASSED SUCCESSFULLY!\n";
