@@ -187,6 +187,10 @@
 				try {
 					parsed = JSON.parse( text );
 				} catch ( e ) {
+					parsed = null;
+				}
+
+				if ( ! parsed || typeof parsed !== 'object' ) {
 					if ( looksLikeHtmlPage( text ) && ! useRest && window.H2F && H2F.restUrl ) {
 						return post( action, params, true, true );
 					}
@@ -203,6 +207,7 @@
 							success: false,
 							data: {
 								message: 'Váratlan szerverválasz (HTTP ' + httpStatus + '). Lásd a hiba részleteit lent.',
+								detail: 'A szerver a várt JSON válasz helyett a következőt adta: ' + ( text ? text.substring( 0, 200 ) : 'üres válasz' ),
 							},
 						};
 					}

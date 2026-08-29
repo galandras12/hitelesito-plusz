@@ -233,7 +233,10 @@ class H2F_Ajax {
 			wp_send_json_error( array( 'message' => __( 'Ismeretlen felhasználó.', 'hitelesito-plusz' ) ) );
 		}
 
-		H2F_Email_2FA::send_code( $user );
+		$result = H2F_Email_2FA::send_code( $user );
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
 
 		// Elfedett e-mail cím a visszajelzésben.
 		$masked = self::mask_email( $user->user_email );
