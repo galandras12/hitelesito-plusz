@@ -125,10 +125,17 @@
 		return trimmed.indexOf( '<!doctype html' ) === 0 || trimmed.indexOf( '<html' ) === 0;
 	}
 
-	function refreshNonce() {
+	function endpointUrl( action, useRest ) {
+		if ( useRest && window.H2F && H2F.restUrl ) {
+			return H2F.restUrl + encodeURIComponent( action );
+		}
+		return H2F.ajaxUrl;
+	}
+
+	function refreshNonce( useRest ) {
 		var body = new URLSearchParams();
 		body.set( 'action', 'h2f_refresh_nonce' );
-		return fetch( H2F.ajaxUrl, {
+		return fetch( endpointUrl( 'h2f_refresh_nonce', useRest ), {
 			method: 'POST',
 			credentials: 'same-origin',
 			headers: {
@@ -146,10 +153,14 @@
 				}
 			}
 			return res;
-		} ).catch( function () {} );
+		} ).catch( function () {
+			if ( ! useRest && window.H2F && H2F.restUrl ) {
+				return refreshNonce( true );
+			}
+		} );
 	}
 
-	function post( action, params, isRetry ) {
+	function post( action, params, isRetry, useRest ) {
 		var body = new URLSearchParams();
 		body.set( 'action', action );
 		body.set( 'nonce', ( window.H2F && H2F.nonce ) ? H2F.nonce : '' );
@@ -158,7 +169,7 @@
 				body.set( key, params[ key ] );
 			}
 		}
-		return fetch( H2F.ajaxUrl, {
+		return fetch( endpointUrl( action, useRest ), {
 			method: 'POST',
 			credentials: 'same-origin',
 			headers: {
@@ -176,6 +187,9 @@
 				try {
 					parsed = JSON.parse( text );
 				} catch ( e ) {
+					if ( looksLikeHtmlPage( text ) && ! useRest && window.H2F && H2F.restUrl ) {
+						return post( action, params, true, true );
+					}
 					if ( looksLikeHtmlPage( text ) ) {
 						parsed = {
 							success: false,
@@ -201,8 +215,8 @@
 			// nonce-ot tartalmazott, itt automatikusan frissítünk és egyszer
 			// újrapróbáljuk - a felhasználó ebből semmit nem vesz észre.
 			if ( ! isRetry && res && false === res.success && res.data && res.data.nonce_expired ) {
-				return refreshNonce().then( function () {
-					return post( action, params, true );
+				return refreshNonce( useRest ).then( function () {
+					return post( action, params, true, useRest );
 				} );
 			}
 			if ( res && false === res.success ) {

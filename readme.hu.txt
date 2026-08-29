@@ -48,6 +48,11 @@ Az admin a felhasználó profilszerkesztő oldalán, vagy a Hitelesítő+ admin 
 
 == Changelog ==
 
+= 1.6 =
+* Javítva: ha az `admin-ajax.php` valamilyen szerveroldali átírás, cache, beléptető proxy vagy részben megmaradó auth cookie miatt teljes HTML oldalt ad vissza HTTP 200-zal a várt JSON helyett, a frontend automatikusan átvált a plugin saját REST API tartalék végpontjára.
+* Javítva: a bejelentkezés közbeni `h2f_` ellenőrző műveletek mostantól a bejelentkezett és nem bejelentkezett AJAX ágban is regisztrálva vannak, így a részben bejelentkezett átmeneti állapot nem eredményez hibás szerverválaszt.
+* Biztonság: a 2FA utáni visszairányítás mostantól WordPress-safe URL ellenőrzésen megy át, a pending cookie pedig SameSite=Lax attribútumot kap.
+
 = 1.5 =
 * Javítva/diagnosztizálva: a hibarészletek panel most már felismeri, ha egy biztonsági/tűzfal bővítmény (pl. Shield Security, Wordfence, Sucuri, vagy más bot-védelem) blokkolja vagy átirányítja az admin-ajax.php-ra küldött kérést a várt JSON válasz helyett egy teljes weboldalt küldve vissza - ilyenkor most konkrét, magyarázó üzenetet ad a "Hibás/lejárt kód" helyett.
 * Minden AJAX kérés mostantól elküldi a szabványos `X-Requested-With: XMLHttpRequest` fejlécet, amit a legtöbb biztonsági bővítmény a valódi böngésző-eredetű AJAX kérések felismerésére használ - ez sok esetben önmagában megszünteti a téves blokkolást.
