@@ -138,9 +138,10 @@ class H2F_Login_Flow {
 			return false;
 		}
 
-		$has_totp    = H2F_TOTP::is_confirmed( $user->ID );
-		$has_email   = 'hidden' !== H2F_Settings::get_policy_for_user( $user, 'email' ); // email mindig elérhető, ha nem rejtett
-		$has_passkey = H2F_Passkey::has_passkeys( $user->ID );
+		$has_totp     = H2F_TOTP::is_confirmed( $user->ID );
+		$has_email    = 'hidden' !== H2F_Settings::get_policy_for_user( $user, 'email' ); // email mindig elérhető, ha nem rejtett
+		$email_active = (bool) get_user_meta( $user->ID, 'h2f_email_enabled', true );
+		$has_passkey  = H2F_Passkey::has_passkeys( $user->ID );
 
 		$enabled_methods = array();
 		if ( $has_totp ) {
@@ -148,6 +149,9 @@ class H2F_Login_Flow {
 		}
 		if ( $has_passkey ) {
 			$enabled_methods[] = 'passkey';
+		}
+		if ( $has_email && $email_active ) {
+			$enabled_methods[] = 'email';
 		}
 
 		// Ha van legalább egy már beállított módszere -> mindenképp kérjünk 2FA-t.
@@ -264,6 +268,8 @@ class H2F_Login_Flow {
 	}
 
 	protected static function render_verify_page() {
+		self::send_nocache_headers();
+
 		$session = self::get_pending_session();
 
 		if ( ! $session ) {
@@ -282,11 +288,28 @@ class H2F_Login_Flow {
 	}
 
 	protected static function render_setup_page() {
+		self::send_nocache_headers();
+
 		if ( ! is_user_logged_in() ) {
 			wp_safe_redirect( wp_login_url( self::setup_url() ) );
 			exit;
 		}
 		$user = wp_get_current_user();
 		require H2F_PLUGIN_DIR . 'templates/setup-2fa.php';
+	}
+
+	/**
+	 * Ez a két oldal felhasználónként/munkamenetenként egyedi (a beágyazott
+	 * biztonsági nonce miatt is), ezért kifejezetten jelezzük a böngészőnek
+	 * és minden gyorsítótárazó rétegnek, hogy ne tárolja el a válasz.
+	 * Ha a szerveren/hosztingon mégis fut valamilyen agresszív, ezt figyelmen
+	 * kívül hagyó teljes oldal gyorsítótárazás, a frontend JS emellett
+	 * mindig lekér egy friss, soha nem gyorsítótárazott nonce-ot is.
+	 */
+	protected static function send_nocache_headers() {
+		if ( ! headers_sent() ) {
+			nocache_headers();
+			header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+		}
 	}
 }
