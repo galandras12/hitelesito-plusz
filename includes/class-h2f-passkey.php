@@ -39,7 +39,7 @@ class H2F_Passkey {
 				'user_id'    => $user->ID,
 				'challenge'  => H2F_WebAuthn_Helper::base64url_encode( $challenge ),
 				'type'       => 'register',
-				'created_at' => current_time( 'mysql' ),
+				'created_at' => current_time( 'mysql', true ),
 			),
 			array( '%d', '%s', '%s', '%s' )
 		);
@@ -130,7 +130,7 @@ class H2F_Passkey {
 				'public_key'    => base64_encode( $pem ),
 				'sign_count'    => $auth_data['sign_count'],
 				'device_name'   => sanitize_text_field( $device_name ),
-				'created_at'    => current_time( 'mysql' ),
+				'created_at'    => current_time( 'mysql', true ),
 			),
 			array( '%d', '%s', '%s', '%d', '%s', '%s' )
 		);
@@ -154,7 +154,7 @@ class H2F_Passkey {
 				'user_id'    => (int) $user_id,
 				'challenge'  => H2F_WebAuthn_Helper::base64url_encode( $challenge ),
 				'type'       => 'auth',
-				'created_at' => current_time( 'mysql' ),
+				'created_at' => current_time( 'mysql', true ),
 			),
 			array( '%d', '%s', '%s', '%s' )
 		);
@@ -239,7 +239,7 @@ class H2F_Passkey {
 
 		$wpdb->update(
 			H2F_DB::table_passkeys(),
-			array( 'sign_count' => $new_sign_count, 'last_used_at' => current_time( 'mysql' ) ),
+			array( 'sign_count' => $new_sign_count, 'last_used_at' => current_time( 'mysql', true ) ),
 			array( 'id' => $stored->id ),
 			array( '%d', '%s' ),
 			array( '%d' )
@@ -292,7 +292,7 @@ class H2F_Passkey {
 			 ORDER BY id DESC LIMIT 1",
 			$user_id,
 			$type,
-			date( 'Y-m-d H:i:s', time() - 300 )
+			gmdate( 'Y-m-d H:i:s', time() - 300 )
 		) );
 	}
 
