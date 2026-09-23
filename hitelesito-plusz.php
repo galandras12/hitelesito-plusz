@@ -41,6 +41,7 @@ require_once H2F_PLUGIN_DIR . 'includes/class-h2f-user-profile.php';
 require_once H2F_PLUGIN_DIR . 'includes/class-h2f-admin.php';
 require_once H2F_PLUGIN_DIR . 'includes/class-h2f-shortcode.php';
 require_once H2F_PLUGIN_DIR . 'includes/class-h2f-ajax.php';
+require_once H2F_PLUGIN_DIR . 'includes/class-h2f-compat.php';
 
 /**
  * Aktiváláskor: táblák létrehozása, alap beállítások.
@@ -88,6 +89,7 @@ function h2f_init() {
 
 	if ( is_admin() ) {
 		H2F_Admin::init();
+		H2F_Compat::init();
 	}
 
 	H2F_Shortcode::init();
