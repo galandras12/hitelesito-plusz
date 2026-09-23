@@ -4,7 +4,7 @@ Tags: two factor, 2fa, totp, passkey, webauthn, security, brute force
 Requires at least: 5.8
 Tested up to: 7.0.4
 Requires PHP: 8.0
-Stable tag: 1.7
+Stable tag: 1.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -47,6 +47,9 @@ Nem. A jelszavas bejelentkezés a megszokott módon, a `wp-login.php`-n történ
 Az admin a felhasználó profilszerkesztő oldalán, vagy a Hitelesítő+ admin felületen keresztül letilthatja az adott felhasználó bármelyik hitelesítő módszerét.
 
 == Changelog ==
+
+= 1.8 =
+* Új: felismeri, ha az And Security bővítmény telepítve van, és együttműködik vele - ha nincs telepítve, ajánlja a nagyobb védelem érdekében (tűzfal, bot-felismerés, fokozatos IP-zárolás - amit a Hitelesítő+ önmagában nem ad); ha mindkettő aktív és mindkét brute force védelem be van kapcsolva, jelzi az átfedést, és a Biztonság fülre irányít.
 
 = 1.7 =
 * Biztonság: A brute force védelem mostantól kiterjed a 2FA-kód ellenőrző végpontokra is (TOTP, e-mail kód, biztonsági kódok, Passkey), megakadályozva a 2FA kódok korlátlan próbálgatását.
