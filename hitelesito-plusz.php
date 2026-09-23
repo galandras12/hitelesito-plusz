@@ -3,7 +3,7 @@
  * Plugin Name: Hitelesítő+
  * Plugin URI: https://github.com/galandras12/hitelesito-plusz
  * Description: Többfaktoros hitelesítés (TOTP, e-mail kód, Passkey/WebAuthn, biztonsági mentési kódok) szerepkör alapú kötelezővé tételi lehetőséggel, bejelentkezés utáni átirányításos hitelesítő felülettel és opcionális brute force védelemmel.
- * Version: 1.7
+ * Version: 1.8
  * Author: galandras12+AI
  * Author URI: https://github.com/galandras12
  * License: GPLv2 or later
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'H2F_VERSION', '1.7' );
+define( 'H2F_VERSION', '1.8' );
 define( 'H2F_PLUGIN_FILE', __FILE__ );
 define( 'H2F_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'H2F_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
