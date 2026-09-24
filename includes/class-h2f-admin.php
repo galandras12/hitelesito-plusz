@@ -95,8 +95,19 @@ class H2F_Admin {
 		}
 
 		if ( 'security' === $tab ) {
+			// Ha az And Security kezeli a belépés-védelmet, a kapcsoló a
+			// felületen inaktív - a beküldött érték ilyenkor sosem jön el a
+			// POST-tal (a böngésző nem küld disabled mezőt), ezért a tárolt
+			// értéket (amit a H2F_Compat már 0-ra szinkronizált) megőrizzük,
+			// nem az "isset" hiányából származtatunk hamis kikapcsolást.
+			$andsec_handles_login = class_exists( 'H2F_Compat' ) && H2F_Compat::is_andsec_login_protection_active();
+
+			$brute_force_enabled = $andsec_handles_login
+				? (int) H2F_Settings::get( 'brute_force_enabled', 1 )
+				: ( isset( $_POST['brute_force_enabled'] ) ? 1 : 0 );
+
 			H2F_Settings::update( array(
-				'brute_force_enabled'   => isset( $_POST['brute_force_enabled'] ) ? 1 : 0,
+				'brute_force_enabled'   => $brute_force_enabled,
 				'brute_force_max_tries' => isset( $_POST['brute_force_max_tries'] ) ? max( 1, absint( $_POST['brute_force_max_tries'] ) ) : 5,
 				'brute_force_window'    => isset( $_POST['brute_force_window'] ) ? max( 1, absint( $_POST['brute_force_window'] ) ) : 15,
 				'brute_force_lockout'   => isset( $_POST['brute_force_lockout'] ) ? max( 1, absint( $_POST['brute_force_lockout'] ) ) : 30,
@@ -254,7 +265,9 @@ class H2F_Admin {
 	}
 
 	protected static function render_security_tab() {
-		$enabled    = (bool) H2F_Settings::get( 'brute_force_enabled', 1 );
+		$andsec_handles_login = class_exists( 'H2F_Compat' ) && H2F_Compat::is_andsec_login_protection_active();
+
+		$enabled    = $andsec_handles_login ? false : (bool) H2F_Settings::get( 'brute_force_enabled', 1 );
 		$max_tries  = (int) H2F_Settings::get( 'brute_force_max_tries', 5 );
 		$window     = (int) H2F_Settings::get( 'brute_force_window', 15 );
 		$lockout    = (int) H2F_Settings::get( 'brute_force_lockout', 30 );
@@ -267,28 +280,32 @@ class H2F_Admin {
 
 			<div class="h2f-field h2f-switch-row">
 				<label class="h2f-switch">
-					<input type="checkbox" name="brute_force_enabled" value="1" <?php checked( $enabled ); ?> />
+					<input type="checkbox" name="brute_force_enabled" value="1" <?php checked( $enabled ); ?> <?php disabled( $andsec_handles_login ); ?> />
 					<span class="h2f-switch-slider"></span>
 				</label>
 				<div>
 					<strong><?php esc_html_e( 'Brute force védelem bekapcsolása', 'hitelesito-plusz' ); ?></strong>
-					<p class="h2f-help"><?php esc_html_e( 'IP-cím és felhasználónév alapján ideiglenesen zárolja a bejelentkezést túl sok sikertelen próbálkozás után, hogy botok ne tudjanak belépni.', 'hitelesito-plusz' ); ?></p>
+					<?php if ( $andsec_handles_login ) : ?>
+						<p class="h2f-help"><em><?php esc_html_e( 'A Brute Force védelmet az And Security kezeli.', 'hitelesito-plusz' ); ?></em></p>
+					<?php else : ?>
+						<p class="h2f-help"><?php esc_html_e( 'IP-cím és felhasználónév alapján ideiglenesen zárolja a bejelentkezést túl sok sikertelen próbálkozás után, hogy botok ne tudjanak belépni.', 'hitelesito-plusz' ); ?></p>
+					<?php endif; ?>
 				</div>
 			</div>
 
 			<div class="h2f-field">
 				<label for="brute_force_max_tries"><?php esc_html_e( 'Megengedett sikertelen próbálkozások száma', 'hitelesito-plusz' ); ?></label>
-				<input type="number" min="1" max="50" id="brute_force_max_tries" name="brute_force_max_tries" class="small-text h2f-input" value="<?php echo esc_attr( $max_tries ); ?>" />
+				<input type="number" min="1" max="50" id="brute_force_max_tries" name="brute_force_max_tries" class="small-text h2f-input" value="<?php echo esc_attr( $max_tries ); ?>" <?php disabled( $andsec_handles_login ); ?> />
 			</div>
 
 			<div class="h2f-field">
 				<label for="brute_force_window"><?php esc_html_e( 'Időablak (perc), amin belül a próbálkozásokat számoljuk', 'hitelesito-plusz' ); ?></label>
-				<input type="number" min="1" max="1440" id="brute_force_window" name="brute_force_window" class="small-text h2f-input" value="<?php echo esc_attr( $window ); ?>" />
+				<input type="number" min="1" max="1440" id="brute_force_window" name="brute_force_window" class="small-text h2f-input" value="<?php echo esc_attr( $window ); ?>" <?php disabled( $andsec_handles_login ); ?> />
 			</div>
 
 			<div class="h2f-field">
 				<label for="brute_force_lockout"><?php esc_html_e( 'Zárolás időtartama (perc)', 'hitelesito-plusz' ); ?></label>
-				<input type="number" min="1" max="1440" id="brute_force_lockout" name="brute_force_lockout" class="small-text h2f-input" value="<?php echo esc_attr( $lockout ); ?>" />
+				<input type="number" min="1" max="1440" id="brute_force_lockout" name="brute_force_lockout" class="small-text h2f-input" value="<?php echo esc_attr( $lockout ); ?>" <?php disabled( $andsec_handles_login ); ?> />
 			</div>
 
 			<hr style="margin:28px 0; border-color:#e2e4e7;" />
