@@ -42,7 +42,7 @@ class H2F_Admin {
 	}
 
 	protected static function current_tab() {
-		$tabs = array( 'roles', 'email', 'security', 'shortcode' );
+		$tabs = array( 'roles', 'email', 'security', 'shortcode', 'diagnostics' );
 		$tab  = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'roles';
 		return in_array( $tab, $tabs, true ) ? $tab : 'roles';
 	}
@@ -130,6 +130,7 @@ class H2F_Admin {
 				<a href="<?php echo esc_url( add_query_arg( 'tab', 'email' ) ); ?>" class="h2f-tab <?php echo 'email' === $tab ? 'active' : ''; ?>"><?php esc_html_e( 'E-mail hitelesítés', 'hitelesito-plusz' ); ?></a>
 				<a href="<?php echo esc_url( add_query_arg( 'tab', 'security' ) ); ?>" class="h2f-tab <?php echo 'security' === $tab ? 'active' : ''; ?>"><?php esc_html_e( 'Biztonság', 'hitelesito-plusz' ); ?></a>
 				<a href="<?php echo esc_url( add_query_arg( 'tab', 'shortcode' ) ); ?>" class="h2f-tab <?php echo 'shortcode' === $tab ? 'active' : ''; ?>"><?php esc_html_e( 'Shortcode', 'hitelesito-plusz' ); ?></a>
+				<a href="<?php echo esc_url( add_query_arg( 'tab', 'diagnostics' ) ); ?>" class="h2f-tab <?php echo 'diagnostics' === $tab ? 'active' : ''; ?>"><?php esc_html_e( 'Diagnosztika', 'hitelesito-plusz' ); ?></a>
 			</nav>
 
 			<div class="h2f-card">
@@ -143,6 +144,9 @@ class H2F_Admin {
 						break;
 					case 'shortcode':
 						self::render_shortcode_tab();
+						break;
+					case 'diagnostics':
+						self::render_diagnostics_tab();
 						break;
 					default:
 						self::render_roles_tab();
@@ -342,6 +346,140 @@ class H2F_Admin {
 				<button type="button" class="button h2f-copy-btn" data-copy="<?php echo esc_attr( H2F_Login_Flow::setup_url() ); ?>"><?php esc_html_e( 'Másolás', 'hitelesito-plusz' ); ?></button>
 			</div>
 		</div>
+		<?php
+	}
+
+	/**
+	 * Csak olvasó diagnosztikai nézet: melyik felhasználói ID alatt van
+	 * ténylegesen hitelesítő adat az adatbázisban, hogy egy "eltűnt" 2FA
+	 * beállítás mögött könnyen kiderüljön, ha csak más/megváltozott
+	 * felhasználói fiókkal vagyunk bejelentkezve, nem törlődött adat.
+	 */
+	protected static function render_diagnostics_tab() {
+		global $wpdb;
+
+		$current_user_id = get_current_user_id();
+
+		$totp_rows = $wpdb->get_results(
+			"SELECT user_id, confirmed, created_at FROM " . H2F_DB::table_totp() // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		);
+		$passkey_rows = $wpdb->get_results(
+			'SELECT user_id, COUNT(*) AS cnt FROM ' . H2F_DB::table_passkeys() . ' GROUP BY user_id' // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		);
+		$backup_rows = $wpdb->get_results(
+			'SELECT user_id, SUM(CASE WHEN used = 0 THEN 1 ELSE 0 END) AS remaining, COUNT(*) AS total FROM ' . H2F_DB::table_backup_codes() . ' GROUP BY user_id' // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		);
+		$email_user_ids = $wpdb->get_col(
+			$wpdb->prepare( "SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = %s AND meta_value = '1'", 'h2f_email_enabled' )
+		);
+
+		$by_user = array();
+
+		foreach ( $totp_rows as $row ) {
+			$by_user[ (int) $row->user_id ]['totp'] = array(
+				'confirmed'  => (bool) $row->confirmed,
+				'created_at' => $row->created_at,
+			);
+		}
+		foreach ( $passkey_rows as $row ) {
+			$by_user[ (int) $row->user_id ]['passkeys'] = (int) $row->cnt;
+		}
+		foreach ( $backup_rows as $row ) {
+			$by_user[ (int) $row->user_id ]['backup_remaining'] = (int) $row->remaining;
+			$by_user[ (int) $row->user_id ]['backup_total']     = (int) $row->total;
+		}
+		foreach ( $email_user_ids as $uid ) {
+			$by_user[ (int) $uid ]['email'] = true;
+		}
+
+		ksort( $by_user );
+
+		$andsec_active = defined( 'ANDSEC_VERSION' );
+		$db_version    = get_option( 'h2f_db_version' );
+		?>
+		<div class="h2f-field">
+			<p class="h2f-help">
+				<?php esc_html_e( 'Ez a nézet csak olvassa az adatbázist, semmit nem módosít. Azt mutatja meg, hogy ténylegesen melyik felhasználói ID alatt van tárolva hitelesítő adat - ha egy fiók "aktivált" hitelesítőt vár, de itt más ID alatt szerepel a bejegyzés, akkor az adatok megvannak, csak épp más felhasználóhoz vannak rendelve.', 'hitelesito-plusz' ); ?>
+			</p>
+		</div>
+
+		<table class="widefat striped" style="margin-bottom:20px;">
+			<tbody>
+				<tr>
+					<td><strong><?php esc_html_e( 'Jelenleg bejelentkezve mint', 'hitelesito-plusz' ); ?></strong></td>
+					<td>
+						#<?php echo esc_html( $current_user_id ); ?>
+						(<?php echo esc_html( wp_get_current_user()->user_login ); ?>)
+					</td>
+				</tr>
+				<tr>
+					<td><strong><?php esc_html_e( 'Hitelesítő+ verzió / DB verzió', 'hitelesito-plusz' ); ?></strong></td>
+					<td><?php echo esc_html( H2F_VERSION . ' / ' . ( $db_version ? $db_version : '—' ) ); ?></td>
+				</tr>
+				<tr>
+					<td><strong><?php esc_html_e( 'And Security észlelve', 'hitelesito-plusz' ); ?></strong></td>
+					<td>
+						<?php if ( $andsec_active ) : ?>
+							<?php esc_html_e( 'Igen', 'hitelesito-plusz' ); ?> (<?php echo esc_html( defined( 'ANDSEC_VERSION' ) ? ANDSEC_VERSION : '' ); ?>)
+						<?php else : ?>
+							<?php esc_html_e( 'Nem aktív', 'hitelesito-plusz' ); ?>
+						<?php endif; ?>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<h2 style="font-size:15px;"><?php esc_html_e( 'Hitelesítő adatok az adatbázisban, felhasználói ID szerint', 'hitelesito-plusz' ); ?></h2>
+
+		<?php if ( empty( $by_user ) ) : ?>
+			<p class="h2f-help"><?php esc_html_e( 'Egyetlen felhasználóhoz sincs semmilyen hitelesítő adat az adatbázisban.', 'hitelesito-plusz' ); ?></p>
+		<?php else : ?>
+			<table class="widefat striped">
+				<thead>
+					<tr>
+						<th><?php esc_html_e( 'Felhasználó', 'hitelesito-plusz' ); ?></th>
+						<th>TOTP</th>
+						<th>Passkey</th>
+						<th><?php esc_html_e( 'Mentési kódok', 'hitelesito-plusz' ); ?></th>
+						<th>E-mail</th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php foreach ( $by_user as $uid => $data ) : ?>
+						<?php $u = get_userdata( $uid ); ?>
+						<tr <?php echo $uid === $current_user_id ? 'style="background:#eaf5ea;"' : ''; ?>>
+							<td>
+								#<?php echo esc_html( $uid ); ?>
+								<?php if ( $u ) : ?>
+									(<?php echo esc_html( $u->user_login ); ?>)
+								<?php else : ?>
+									<em><?php esc_html_e( 'törölt felhasználó', 'hitelesito-plusz' ); ?></em>
+								<?php endif; ?>
+								<?php if ( $uid === $current_user_id ) : ?>
+									&larr; <?php esc_html_e( 'te', 'hitelesito-plusz' ); ?>
+								<?php endif; ?>
+							</td>
+							<td>
+								<?php if ( ! empty( $data['totp']['confirmed'] ) ) : ?>
+									<?php esc_html_e( 'igen', 'hitelesito-plusz' ); ?> (<?php echo esc_html( $data['totp']['created_at'] ); ?>)
+								<?php else : ?>
+									—
+								<?php endif; ?>
+							</td>
+							<td><?php echo isset( $data['passkeys'] ) ? esc_html( $data['passkeys'] ) : '—'; ?></td>
+							<td>
+								<?php if ( isset( $data['backup_total'] ) ) : ?>
+									<?php echo esc_html( $data['backup_remaining'] ); ?> / <?php echo esc_html( $data['backup_total'] ); ?>
+								<?php else : ?>
+									—
+								<?php endif; ?>
+							</td>
+							<td><?php echo ! empty( $data['email'] ) ? esc_html__( 'igen', 'hitelesito-plusz' ) : '—'; ?></td>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+		<?php endif; ?>
 		<?php
 	}
 }
