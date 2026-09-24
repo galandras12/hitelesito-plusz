@@ -4,7 +4,7 @@ Tags: two factor, 2fa, totp, passkey, webauthn, security, brute force
 Requires at least: 5.8
 Tested up to: 7.0.4
 Requires PHP: 8.0
-Stable tag: 1.8
+Stable tag: 1.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -47,6 +47,9 @@ Nem. A jelszavas bejelentkezés a megszokott módon, a `wp-login.php`-n történ
 Az admin a felhasználó profilszerkesztő oldalán, vagy a Hitelesítő+ admin felületen keresztül letilthatja az adott felhasználó bármelyik hitelesítő módszerét.
 
 == Changelog ==
+
+= 1.9 =
+* Javítva (kritikus): a bővítmény saját adatbázis-táblái (TOTP, Passkey, biztonsági kódok, e-mail kódok, belépési napló) eddig kizárólag a plugin "Aktiválás" gombbal történő aktiválásakor jöttek létre. Ha egy már aktív telepítést helyben frissítettek (pl. a wp-admin "Feltöltés -> Csere a feltöltöttre" funkciójával, vagy FTP-vel), ez a lépés sosem futott le újra, és ha a táblák valamiért hiányoztak, a frissítés után MINDEN felhasználó kétfaktoros hitelesítése (TOTP, Passkey, e-mail kód egyaránt) működésképtelenné vált. Mostantól minden kérésnél automatikusan ellenőrizzük és szükség esetén pótoljuk a hiányzó táblákat, függetlenül attól, hogyan történt a frissítés.
 
 = 1.8 =
 * Új: felismeri, ha az And Security bővítmény telepítve van, és együttműködik vele - ha nincs telepítve, ajánlja a nagyobb védelem érdekében (tűzfal, bot-felismerés, fokozatos IP-zárolás - amit a Hitelesítő+ önmagában nem ad); ha mindkettő aktív és mindkét brute force védelem be van kapcsolva, jelzi az átfedést, és a Biztonság fülre irányít.
