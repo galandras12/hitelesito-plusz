@@ -14,10 +14,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  *  - ha az And Security NINCS telepítve, felajánljuk az adminnak, hogy a
  *    nagyobb védelem érdekében telepítse;
- *  - ha MINDKETTŐ aktív és mindkét saját brute force védelme be van
- *    kapcsolva, jelezzük az átfedést, és átirányítjuk a Biztonság fülre,
- *    ahol az egyik kikapcsolható (az And Security oldaláról ugyanez a
- *    kikapcsolás egy kattintással is elvégezhető).
+ *  - ha az And Security AKTÍV és a saját belépés-védelme is be van
+ *    kapcsolva nála, a Hitelesítő+ saját brute force védelmét automatikusan
+ *    kikapcsoljuk (nem csak futásidőben, a tárolt beállítást is frissítjük),
+ *    és a Biztonság fülön a kapcsolót inaktívvá tesszük egy magyarázó
+ *    szöveggel - két, egymástól független zárolás soha nem fut egyszerre.
  */
 class H2F_Compat {
 
@@ -26,6 +27,7 @@ class H2F_Compat {
 	public static function init() {
 		add_action( 'admin_notices', array( __CLASS__, 'notices' ) );
 		add_action( 'admin_post_h2f_dismiss_andsec_recommend', array( __CLASS__, 'handle_dismiss' ) );
+		add_action( 'admin_init', array( __CLASS__, 'maybe_sync_brute_force_setting' ) );
 	}
 
 	/**
@@ -33,6 +35,37 @@ class H2F_Compat {
 	 */
 	public static function is_andsec_active() {
 		return defined( 'ANDSEC_VERSION' );
+	}
+
+	/**
+	 * Ténylegesen védi-e az And Security a bejelentkezést.
+	 *
+	 * Csak akkor igaz, ha az And Security telepítve ÉS a saját
+	 * belépés-védelem modulja is be van kapcsolva nála - ha valaki
+	 * kifejezetten kikapcsolta az And Security oldalán (vagy az egész
+	 * bővítményt), a Hitelesítő+ saját védelmét nem vesszük el tőle
+	 * feleslegesen.
+	 */
+	public static function is_andsec_login_protection_active() {
+		if ( ! self::is_andsec_active() ) {
+			return false;
+		}
+
+		$settings = get_option( 'andsec_settings', array() );
+
+		if ( ! is_array( $settings ) ) {
+			return true;
+		}
+
+		if ( isset( $settings['general']['enabled'] ) && ! $settings['general']['enabled'] ) {
+			return false;
+		}
+
+		if ( isset( $settings['login']['enabled'] ) && ! $settings['login']['enabled'] ) {
+			return false;
+		}
+
+		return true;
 	}
 
 	/**
@@ -49,8 +82,10 @@ class H2F_Compat {
 			return;
 		}
 
+		// Ha az And Security aktív, a Biztonság fülön lévő inaktív kapcsoló
+		// és a mellette lévő magyarázat már megmondja, mi történik - külön
+		// admin-értesítés nem kell hozzá.
 		if ( self::is_andsec_active() ) {
-			self::render_active_notice();
 			return;
 		}
 
@@ -84,26 +119,28 @@ class H2F_Compat {
 	}
 
 	/**
-	 * And Security is aktív: jelezzük, ha a két brute force védelem átfedi
-	 * egymást, és a Biztonság fülre irányítjuk az adminisztrátort.
+	 * Ha az And Security kezeli a belépés-védelmet, a Hitelesítő+ saját
+	 * brute force kapcsolóját automatikusan kikapcsoljuk - a TÁROLT
+	 * beállítást is frissítjük (nem csak futásidőben döntünk másképp),
+	 * hogy:
+	 *  - a Biztonság fülön a kapcsoló ténylegesen kikapcsolt állapotot
+	 *    mutasson (ne csak inaktívan, de "bekapcsolva" állva legyen tiltva),
+	 *  - az And Security saját ütközés-figyelése is a valós állapotot lássa.
+	 *
+	 * Ha And Security nélkül futsz tovább (vagy kikapcsolod nála a
+	 * belépés-védelmet), a kapcsoló a Biztonság fülön újra elérhetővé és
+	 * kézzel bekapcsolhatóvá válik - ezt a metódust ilyenkor nem hívjuk.
 	 */
-	protected static function render_active_notice() {
+	public static function maybe_sync_brute_force_setting() {
+		if ( ! self::is_andsec_login_protection_active() ) {
+			return;
+		}
+
 		if ( ! (bool) H2F_Settings::get( 'brute_force_enabled', 1 ) ) {
 			return;
 		}
 
-		$security_url = admin_url( 'admin.php?page=hitelesito-plusz&tab=security' );
-		?>
-		<div class="notice notice-warning">
-			<p>
-				<strong><?php esc_html_e( 'Hitelesítő+ × And Security', 'hitelesito-plusz' ); ?></strong><br />
-				<?php esc_html_e( 'Mindkét bővítmény saját brute force védelmet futtat egyszerre. Ez ellentmondó hibaüzeneteket és felesleges dupla zárolást okozhat. Javasolt az And Securityre bízni a bejelentkezés-védelmet, és itt kikapcsolni a Hitelesítő+ saját brute force zárolását (ez az And Security Kompatibilitás oldaláról is elvégezhető egy kattintással).', 'hitelesito-plusz' ); ?>
-			</p>
-			<p>
-				<a class="button" href="<?php echo esc_url( $security_url ); ?>"><?php esc_html_e( 'Ugrás a Biztonság fülre', 'hitelesito-plusz' ); ?></a>
-			</p>
-		</div>
-		<?php
+		H2F_Settings::update( array( 'brute_force_enabled' => 0 ) );
 	}
 
 	public static function handle_dismiss() {
