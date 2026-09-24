@@ -15,7 +15,18 @@ class H2F_Brute_Force {
 		add_action( 'wp_login', array( __CLASS__, 'log_successful_attempt' ), 10, 2 );
 	}
 
+	/**
+	 * Ha az And Security aktívan védi a bejelentkezést, a saját brute
+	 * force védelmünket futásidőben is kikapcsoljuk - függetlenül a
+	 * tárolt beállítástól. Ez a végső biztosíték a `H2F_Compat`-ban lévő
+	 * tárolt-érték szinkronizálás mellett: az utóbbi csak admin oldalon
+	 * fut le, ez viszont minden bejelentkezési kísérletnél érvényesül.
+	 */
 	protected static function is_enabled() {
+		if ( class_exists( 'H2F_Compat' ) && H2F_Compat::is_andsec_login_protection_active() ) {
+			return false;
+		}
+
 		return (bool) H2F_Settings::get( 'brute_force_enabled', 1 );
 	}
 

@@ -38,6 +38,28 @@ class H2F_DB {
 		return $wpdb->prefix . 'h2f_webauthn_challenges';
 	}
 
+	/**
+	 * Önjavítás: ha a tárolt séma-verzió nem egyezik a futó plugin
+	 * verziójával, újra lefuttatjuk a (idempotens) tábla-létrehozást.
+	 *
+	 * A `register_activation_hook` KIZÁRÓLAG az inaktív -> aktív
+	 * állapotváltáskor fut le. Egy már aktív bővítmény helyben történő
+	 * frissítése - akár a wp-admin "Feltöltés -> Csere a feltöltöttre"
+	 * funkciójával, akár FTP-vel, akár bármilyen más fájlcserével - ezt
+	 * SOHA nem váltja ki, tehát az aktiváláskor lefutó `create_tables()`
+	 * egy ilyen frissítés után elmaradhat. Ez a metódus ettől függetlenül,
+	 * minden kérésnél ellenőrzi és szükség esetén pótolja a táblákat, hogy
+	 * egy frissítés se hagyhassa tábla nélkül (és ezzel 2FA nélkül) az
+	 * oldalt, függetlenül attól, hogyan történt a telepítés.
+	 */
+	public static function maybe_create_tables() {
+		if ( get_option( 'h2f_db_version' ) === H2F_VERSION ) {
+			return;
+		}
+
+		self::create_tables();
+	}
+
 	public static function create_tables() {
 		global $wpdb;
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';

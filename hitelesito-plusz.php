@@ -3,7 +3,7 @@
  * Plugin Name: Hitelesítő+
  * Plugin URI: https://github.com/galandras12/hitelesito-plusz
  * Description: Többfaktoros hitelesítés (TOTP, e-mail kód, Passkey/WebAuthn, biztonsági mentési kódok) szerepkör alapú kötelezővé tételi lehetőséggel, bejelentkezés utáni átirányításos hitelesítő felülettel és opcionális brute force védelemmel.
- * Version: 1.8
+ * Version: 1.10
  * Author: galandras12+AI
  * Author URI: https://github.com/galandras12
  * License: GPLv2 or later
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'H2F_VERSION', '1.8' );
+define( 'H2F_VERSION', '1.10' );
 define( 'H2F_PLUGIN_FILE', __FILE__ );
 define( 'H2F_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'H2F_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -62,6 +62,15 @@ function h2f_deactivate() {
 	wp_clear_scheduled_hook( 'h2f_cleanup_event' );
 }
 register_deactivation_hook( __FILE__, 'h2f_deactivate' );
+
+/**
+ * Önjavítás: minden kérésnél (nem csak aktiváláskor) ellenőrizzük, megvannak-e
+ * a saját táblák, és szükség esetén pótoljuk őket - lásd H2F_DB::maybe_create_tables()
+ * fejléc-megjegyzését. Korán, a `plugins_loaded`-on fut, még az `init`-re
+ * beiratkozó H2F_Login_Flow előtt, hogy a bejelentkezés/2FA soha ne
+ * fusson neki hiányzó tábláknak.
+ */
+add_action( 'plugins_loaded', array( 'H2F_DB', 'maybe_create_tables' ), 5 );
 
 /**
  * Lejárt e-mail kódok / brute force naplók takarítása óránként.
